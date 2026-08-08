@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=T3 Code (Alpha)
+GenericName=AI coding agent interface
+Comment=Control local AI coding agents
+Exec=t3code %U
+Icon=t3code
+Terminal=false
+Categories=Development;IDE;
+Keywords=AI;Agent;Codex;Claude;Cursor;OpenCode;
+MimeType=x-scheme-handler/t3code;x-scheme-handler/t3code-dev;
+StartupWMClass=t3code
+

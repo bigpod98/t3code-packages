@@ -1,0 +1,6 @@
+t3code (0.0.32-1) unstable; urgency=medium
+
+  * Package the upstream Linux desktop payload with native Debian tooling.
+  * Add graphical and headless command entry points.
+
+ -- Primoz Ajdisek <bigpod@bigpod.si>  Fri, 07 Aug 2026 22:22:00 +0000

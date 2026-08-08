@@ -1,0 +1,39 @@
+#!/usr/bin/make -f
+
+export DH_VERBOSE = 1
+
+%:
+	dh $@
+
+override_dh_auto_build:
+
+override_dh_auto_test:
+
+override_dh_auto_install:
+	install -d debian/t3code/usr/lib/t3code
+	cp -a payload/. debian/t3code/usr/lib/t3code/
+	install -D -m 0755 packaging/t3code debian/t3code/usr/bin/t3code
+	install -D -m 0755 packaging/t3 debian/t3code/usr/bin/t3
+	install -D -m 0644 packaging/t3code.desktop \
+		debian/t3code/usr/share/applications/t3code.desktop
+	install -D -m 0644 packaging/t3code.metainfo.xml \
+		debian/t3code/usr/share/metainfo/com.t3tools.t3code.metainfo.xml
+	install -D -m 0644 payload/t3code.png \
+		debian/t3code/usr/share/icons/hicolor/1024x1024/apps/t3code.png
+	install -D -m 0644 payload/LICENSE.t3code \
+		debian/t3code/usr/share/doc/t3code/copyright.upstream
+	rm -f debian/t3code/usr/lib/t3code/t3code.png
+	rm -f debian/t3code/usr/lib/t3code/LICENSE.t3code
+
+override_dh_fixperms:
+	dh_fixperms
+	chmod 4755 debian/t3code/usr/lib/t3code/chrome-sandbox
+
+# Preserve the tested Electron payload byte-for-byte. Its runtime library
+# contract is declared explicitly in debian/control.
+override_dh_strip:
+
+override_dh_dwz:
+
+override_dh_shlibdeps:
+

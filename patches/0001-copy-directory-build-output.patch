@@ -1,0 +1,34 @@
+From: Primoz Ajdisek <bigpod@bigpod.si>
+Subject: [PATCH] build: copy directory artifacts to the requested output
+
+The native distro recipes need electron-builder's unpacked directory but do
+not use electron-builder's fpm-backed deb/rpm targets. Preserve directory
+artifacts in the same way as file artifacts so `--target dir` is a supported
+payload boundary.
+---
+ scripts/build-desktop-artifact.ts | 8 ++++++--
+ 1 file changed, 6 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/build-desktop-artifact.ts b/scripts/build-desktop-artifact.ts
+index 848ccdab..5c61bfb1 100644
+--- a/scripts/build-desktop-artifact.ts
++++ b/scripts/build-desktop-artifact.ts
+@@ -2132,10 +2132,14 @@ const buildDesktopArtifact = Effect.fn("buildDesktopArtifact")(function* (
+   for (const entry of stageEntries) {
+     const from = path.join(stageDistDir, entry);
+     const stat = yield* fs.stat(from).pipe(Effect.orElseSucceed(() => null));
+-    if (!stat || stat.type !== "File") continue;
++    if (!stat || (stat.type !== "File" && stat.type !== "Directory")) continue;
+ 
+     const to = path.join(options.outputDir, entry);
+-    yield* fs.copyFile(from, to);
++    if (stat.type === "Directory") {
++      yield* fs.copy(from, to);
++    } else {
++      yield* fs.copyFile(from, to);
++    }
+     copiedArtifacts.push(to);
+   }
+ 
+-- 
+2.51.0

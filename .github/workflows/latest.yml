@@ -1,0 +1,119 @@
+name: Latest stable packages
+
+on:
+  schedule:
+    - cron: "45 2 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: latest-stable-packages
+  cancel-in-progress: true
+
+jobs:
+  resolve:
+    name: Resolve latest stable release
+    runs-on: ubuntu-24.04
+    outputs:
+      package_date: ${{ steps.source.outputs.package_date }}
+      source_commit: ${{ steps.source.outputs.source_commit }}
+      source_date_epoch: ${{ steps.source.outputs.source_date_epoch }}
+      version: ${{ steps.source.outputs.version }}
+    steps:
+      - id: source
+        name: Resolve release and source commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          tag="$(gh api repos/pingdotgg/t3code/releases/latest --jq .tag_name)"
+          if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Latest release tag is not a stable semantic version: $tag" >&2
+            exit 1
+          fi
+
+          read -r source_commit source_date < <(
+            gh api "repos/pingdotgg/t3code/commits/$tag" \
+              --jq '"\(.sha) \(.commit.committer.date)"'
+          )
+          version="${tag#v}"
+          package_date="$(date -u -d "$source_date" +%F)"
+          source_date_epoch="$(date -u -d "$source_date" +%s)"
+
+          {
+            echo "package_date=$package_date"
+            echo "source_commit=$source_commit"
+            echo "source_date_epoch=$source_date_epoch"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+  build:
+    name: Build ${{ matrix.arch }}
+    needs: resolve
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 180
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runner: ubuntu-24.04
+          - arch: aarch64
+            runner: ubuntu-24.04-arm
+    env:
+      PACKAGE_DATE: ${{ needs.resolve.outputs.package_date }}
+      RELEASE: "1"
+      SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
+      SOURCE_DATE_EPOCH: ${{ needs.resolve.outputs.source_date_epoch }}
+      SOURCE_REPOSITORY: https://github.com/pingdotgg/t3code
+      VERSION: ${{ needs.resolve.outputs.version }}
+    steps:
+      - name: Checkout packaging recipes
+        uses: actions/checkout@v6
+
+      - name: Install native build and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes --no-install-recommends \
+            appstream-util \
+            build-essential \
+            debhelper \
+            desktop-file-utils \
+            dpkg-dev \
+            fakeroot \
+            imagemagick \
+            libsecret-1-dev \
+            rpm
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.13.1
+          package-manager-cache: false
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 11.10.0
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build native packages
+        run: make packages SOURCE_SHA256=
+
+      - name: Validate packages
+        run: make check SOURCE_SHA256=
+
+      - name: Upload packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: t3code-${{ needs.resolve.outputs.version }}-${{ matrix.arch }}
+          path: |
+            dist/*.deb
+            dist/*.rpm
+          if-no-files-found: error
+          retention-days: 30
