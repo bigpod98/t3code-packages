@@ -131,7 +131,7 @@ $(PAYLOAD_STAMP): $(SOURCE_STAMP)
 	test "$(BUILD_DIR)" != /
 	rm -rf "$(BUILD_DIR)/electron-output"
 	cd "$(SOURCE_DIR)" && SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
-		pnpm exec vp run dist:desktop:artifact -- \
+		node scripts/build-desktop-artifact.ts \
 		--platform linux \
 		--target dir \
 		--arch "$(ELECTRON_ARCH)" \
