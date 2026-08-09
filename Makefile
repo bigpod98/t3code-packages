@@ -197,7 +197,10 @@ $(RPM_PAYLOAD): $(PAYLOAD_STAMP) rpm/t3code.spec packaging/t3 packaging/t3code \
 		packaging/t3code.metainfo.xml > "$(RPM_TOPDIR)/SOURCES/t3code.metainfo.xml"
 
 rpm: $(RPM_PAYLOAD)
-	rpmbuild --define "_topdir $(RPM_TOPDIR)" \
+	command -v desktop-file-install >/dev/null
+	command -v desktop-file-validate >/dev/null
+	command -v appstream-util >/dev/null
+	rpmbuild --nodeps --define "_topdir $(RPM_TOPDIR)" \
 		--define "_source_date_epoch $(SOURCE_DATE_EPOCH)" \
 		--define "package_version $(VERSION)" \
 		--define "package_release $(RELEASE)" \
