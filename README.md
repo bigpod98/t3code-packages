@@ -30,7 +30,8 @@ pinned in `Makefile`.
 Package formation additionally requires:
 
 - DEB: `dpkg-dev`, `debhelper`, and `fakeroot`
-- RPM: `rpm-build`, `desktop-file-utils`, and `libappstream-glib`
+- RPM: Docker; `make rpm` installs `rpm-build`, `desktop-file-utils`, and
+  `libappstream-glib` in the pinned Fedora container
 
 Full package validation additionally uses `lintian`, `rpmlint`, and Docker.
 The Docker checks install and smoke-test the packages in Debian 13 and Fedora
@@ -88,13 +89,13 @@ make packages \
 - `Latest stable packages` runs every day and on demand. It resolves the latest
   non-prerelease from `pingdotgg/t3code` and builds that exact release commit.
 
-Both workflows build on native x86-64 and ARM64 Ubuntu runners, form both DEB
-and RPM packages from the same per-architecture payload, and retain the results
-as workflow artifacts. Every workflow run is a distinct package release, even
-when the upstream stable version has not changed. The workflows lint the
-packages, install them in Debian and Fedora containers, smoke-test both
-launchers, and publish a `SHA256SUMS` file. They do not publish or replace
-GitHub releases.
+Both workflows build on native x86-64 and ARM64 Ubuntu runners. They form the
+DEB on the host and the RPM in a native Fedora container, both from the same
+per-architecture payload, and retain the results as workflow artifacts. Every
+workflow run is a distinct package release, even when the upstream stable
+version has not changed. The workflows lint the packages, install them in
+Debian and Fedora containers, smoke-test both launchers, and publish a
+`SHA256SUMS` file. They do not publish or replace GitHub releases.
 
 ## Installed layout
 

@@ -1,0 +1,51 @@
+#!/bin/sh
+set -eu
+
+repo_dir=${1:-.}
+repo_dir=$(cd "$repo_dir" && pwd)
+fedora_image=${FEDORA_IMAGE:-fedora:43}
+host_uid=$(id -u)
+host_gid=$(id -g)
+
+command -v docker >/dev/null
+
+docker run --rm \
+  --volume "$repo_dir:/workspace" \
+  --workdir /workspace \
+  --env VERSION \
+  --env RELEASE \
+  --env PACKAGE_DATE \
+  --env NODE_VERSION \
+  --env PNPM_VERSION \
+  --env RUST_VERSION \
+  --env SOURCE_REPOSITORY \
+  --env SOURCE_COMMIT \
+  --env SOURCE_SHA256 \
+  --env SOURCE_DATE_EPOCH \
+  --env HOST_UID="$host_uid" \
+  --env HOST_GID="$host_gid" \
+  "$fedora_image" sh -euxc '
+    dnf install --assumeyes \
+      alsa-lib \
+      at-spi2-core \
+      coreutils \
+      desktop-file-utils \
+      findutils \
+      gzip \
+      gtk3 \
+      libappstream-glib \
+      libnotify \
+      libsecret \
+      libuuid \
+      libXScrnSaver \
+      libXtst \
+      make \
+      mesa-libgbm \
+      nss \
+      rpm-build \
+      tar \
+      util-linux \
+      xdg-utils
+    setpriv --reuid="$HOST_UID" --regid="$HOST_GID" --clear-groups \
+      env HOME=/tmp make rpm-native
+  '

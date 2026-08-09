@@ -9,6 +9,7 @@ PACKAGE_DATE ?= 2026-08-07
 NODE_VERSION ?= 24.13.1
 PNPM_VERSION ?= 11.10.0
 RUST_VERSION ?= 1.97.1
+FEDORA_IMAGE ?= fedora:43
 
 SOURCE_REPOSITORY ?= https://github.com/pingdotgg/t3code
 SOURCE_COMMIT ?= 239ef1c54df2f657912ccb5b8e25193d49d90417
@@ -48,7 +49,7 @@ DEB_STAGE_STAMP := $(DEB_SOURCE_DIR)/.packaging-stage-ready
 RPM_TOPDIR := $(BUILD_DIR)/rpm/$(RPM_ARCH)/$(BUILD_KEY)
 RPM_PAYLOAD := $(RPM_TOPDIR)/SOURCES/$(NAME)-payload-$(VERSION)-$(RPM_ARCH).tar.gz
 
-.PHONY: help source verify-source payload check-payload deb rpm packages check \
+.PHONY: help source verify-source payload check-payload deb rpm rpm-native packages check \
 	check-config check-recipes check-packages install-test clean
 
 help:
@@ -56,7 +57,7 @@ help:
 	@echo
 	@echo "  make payload       build one unpacked Electron payload from pinned upstream"
 	@echo "  make deb           build a DEB with dpkg-buildpackage"
-	@echo "  make rpm           build an RPM with rpmbuild"
+	@echo "  make rpm           build an RPM in a Fedora container"
 	@echo "  make packages      build both packages from the same payload"
 	@echo "  make check         validate recipes and any existing payload/packages"
 	@echo "  make install-test  install packages in Debian and Fedora containers"
@@ -196,11 +197,11 @@ $(RPM_PAYLOAD): $(PAYLOAD_STAMP) rpm/t3code.spec packaging/t3 packaging/t3code \
 	sed -E 's#<release version="[^"]+" date="[^"]+"/>#<release version="$(VERSION)" date="$(PACKAGE_DATE)"/>#' \
 		packaging/t3code.metainfo.xml > "$(RPM_TOPDIR)/SOURCES/t3code.metainfo.xml"
 
-rpm: $(RPM_PAYLOAD)
+rpm-native: $(RPM_PAYLOAD)
 	command -v desktop-file-install >/dev/null
 	command -v desktop-file-validate >/dev/null
 	command -v appstream-util >/dev/null
-	rpmbuild --nodeps --define "_topdir $(RPM_TOPDIR)" \
+	rpmbuild --define "_topdir $(RPM_TOPDIR)" \
 		--define "_source_date_epoch $(SOURCE_DATE_EPOCH)" \
 		--define "package_version $(VERSION)" \
 		--define "package_release $(RELEASE)" \
@@ -208,12 +209,21 @@ rpm: $(RPM_PAYLOAD)
 	install -d "$(DIST_DIR)"
 	find "$(RPM_TOPDIR)/RPMS" -type f -name '*.rpm' -exec cp -f {} "$(DIST_DIR)/" \;
 
+rpm: $(RPM_PAYLOAD) packaging/build-rpm-container
+	FEDORA_IMAGE="$(FEDORA_IMAGE)" \
+		VERSION="$(VERSION)" RELEASE="$(RELEASE)" PACKAGE_DATE="$(PACKAGE_DATE)" \
+		NODE_VERSION="$(NODE_VERSION)" PNPM_VERSION="$(PNPM_VERSION)" \
+		RUST_VERSION="$(RUST_VERSION)" SOURCE_REPOSITORY="$(SOURCE_REPOSITORY)" \
+		SOURCE_COMMIT="$(SOURCE_COMMIT)" SOURCE_SHA256="$(SOURCE_SHA256)" \
+		SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		sh packaging/build-rpm-container "$(CURDIR)"
+
 packages: deb rpm
 
 check-recipes:
 	dpkg-parsechangelog -ldebian/changelog >/dev/null
 	rpmspec --parse rpm/t3code.spec >/dev/null
-	sh -n packaging/t3 packaging/t3code
+	sh -n packaging/build-rpm-container packaging/t3 packaging/t3code
 	grep -Fq 'Exec=t3code %U' packaging/t3code.desktop
 	grep -Fq 'x-scheme-handler/t3code;' packaging/t3code.desktop
 	grep -Fq '<launchable type="desktop-id">t3code.desktop</launchable>' packaging/t3code.metainfo.xml
@@ -222,7 +232,7 @@ check-packages:
 	sh packaging/check-packages "$(DIST_DIR)" "$(REQUIRE_PACKAGES)"
 
 install-test:
-	sh packaging/install-test "$(DIST_DIR)"
+	FEDORA_IMAGE="$(FEDORA_IMAGE)" sh packaging/install-test "$(DIST_DIR)"
 
 check: check-config check-recipes check-packages
 	@if test -f "$(PAYLOAD_STAMP)"; then $(MAKE) check-payload; fi

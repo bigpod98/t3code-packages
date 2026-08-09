@@ -3,6 +3,7 @@ set -eu
 
 dist_dir=${1:-dist}
 dist_dir=$(cd "$dist_dir" && pwd)
+fedora_image=${FEDORA_IMAGE:-fedora:43}
 
 command -v docker >/dev/null
 test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
@@ -16,7 +17,7 @@ docker run --rm --volume "$dist_dir:/packages:ro" debian:13-slim sh -euxc '
   timeout 30 t3 --help >/dev/null
 '
 
-docker run --rm --volume "$dist_dir:/packages:ro" fedora:43 sh -euxc '
+docker run --rm --volume "$dist_dir:/packages:ro" "$fedora_image" sh -euxc '
   dnf install --assumeyes /packages/*.rpm
   test "$(stat -c %a /usr/lib/t3code/chrome-sandbox)" = 4755
   ELECTRON_RUN_AS_NODE=1 t3code --version
