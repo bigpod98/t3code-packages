@@ -1,0 +1,19 @@
+# The upstream Electron executable intentionally bundles these libraries. T3 Code
+# has no supported system-library build mode for its Electron distribution.
+t3code: embedded-library freetype [usr/lib/t3code/t3code]
+t3code: embedded-library lcms2 [usr/lib/t3code/t3code]
+t3code: embedded-library libjpeg [usr/lib/t3code/t3code]
+t3code: embedded-library openjpeg [usr/lib/t3code/t3code]
+t3code: embedded-library srtp [usr/lib/t3code/t3code]
+t3code: embedded-library tiff [usr/lib/t3code/t3code]
+
+# Upstream ships musl fallbacks beside the glibc native modules. They are selected
+# by the JavaScript loaders and are not ELF libraries for the Debian host ABI.
+t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@ff-labs/fff-bin-linux-*-musl/libfff_c.so]
+t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.musl.node]
+
+# Preserve the tested upstream Electron payload byte-for-byte. Stripping these
+# prebuilt objects would mutate vendor artifacts after the upstream smoke test.
+t3code: unstripped-binary-or-object [usr/lib/t3code/libvulkan.so.1]
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.node]
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/node-pty/build/Release/pty.node]
