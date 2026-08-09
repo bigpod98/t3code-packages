@@ -1,0 +1,73 @@
+#!/bin/sh
+set -eu
+
+dist_dir=${1:-dist}
+owner=${2:?Forgejo package owner is required}
+distribution=${3:?Debian distribution is required}
+forgejo_url=${FORGEJO_URL:-https://git.tuxbase.com}
+component=${FORGEJO_DEBIAN_COMPONENT:-main}
+
+if test -z "${FORGEJO_TOKEN:-}"; then
+  echo "FORGEJO_TOKEN is required" >&2
+  exit 1
+fi
+
+case "$owner:$distribution:$component" in
+  *[!A-Za-z0-9._:-]*)
+    echo "Invalid Forgejo owner, distribution, or component" >&2
+    exit 1
+    ;;
+esac
+
+forgejo_url=${forgejo_url%/}
+response_file=$(mktemp)
+trap 'rm -f "$response_file"' EXIT HUP INT TERM
+
+upload_package() {
+  package=$1
+  endpoint=$2
+  package_name=${package##*/}
+
+  status=$(
+    curl --silent --show-error \
+      --retry 3 \
+      --retry-all-errors \
+      --header "Authorization: token $FORGEJO_TOKEN" \
+      --upload-file "$package" \
+      --output "$response_file" \
+      --write-out '%{http_code}' \
+      "$endpoint"
+  )
+
+  case "$status" in
+    201)
+      echo "Published $package_name"
+      ;;
+    409)
+      echo "Already published $package_name"
+      ;;
+    *)
+      echo "Forgejo rejected $package_name with HTTP $status" >&2
+      cat "$response_file" >&2
+      return 1
+      ;;
+  esac
+}
+
+deb_count=$(find "$dist_dir" -maxdepth 1 -type f -name '*.deb' | wc -l)
+rpm_count=$(find "$dist_dir" -maxdepth 1 -type f -name '*.rpm' | wc -l)
+
+if test "$deb_count" -ne 2 || test "$rpm_count" -ne 2; then
+  echo "Expected two DEBs and two RPMs, found $deb_count DEBs and $rpm_count RPMs" >&2
+  exit 1
+fi
+
+for package in "$dist_dir"/*.deb; do
+  upload_package "$package" \
+    "$forgejo_url/api/packages/$owner/debian/pool/$distribution/$component/upload"
+done
+
+for package in "$dist_dir"/*.rpm; do
+  upload_package "$package" \
+    "$forgejo_url/api/packages/$owner/rpm/upload"
+done

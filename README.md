@@ -91,11 +91,30 @@ make packages \
 
 Both workflows build on native x86-64 and ARM64 Ubuntu runners. They form the
 DEB on the host and the RPM in a native Fedora container, both from the same
-per-architecture payload, and retain the results as workflow artifacts. Every
+per-architecture payload, retain the results as workflow artifacts, and publish
+the validated packages to `git.tuxbase.com`. Daily packages belong to the
+`t3code-daily` organization; stable packages belong to `t3code-stable`. Every
 workflow run is a distinct package release, even when the upstream stable
 version has not changed. The workflows lint the packages, install them in
 Debian and Fedora containers, smoke-test both launchers, and publish a
 `SHA256SUMS` file. They do not publish or replace GitHub releases.
+
+Forgejo publication requires a GitHub Actions secret named `FORGEJO_TOKEN`.
+Its Forgejo user must have package write access to both organizations, and the
+token must have the `write:package` scope. Package uploads begin only after both
+architecture jobs succeed. A repeated upload is treated as already published,
+which makes workflow reruns safe after a partial publication.
+
+The stable repositories are available at these endpoints once the
+`t3code-stable` organization exists and its package registry is public:
+
+```text
+APT: https://git.tuxbase.com/api/packages/t3code-stable/debian stable main
+RPM: https://git.tuxbase.com/api/packages/t3code-stable/rpm.repo
+```
+
+The daily equivalents use owner `t3code-daily`, APT distribution `daily`, and
+`https://git.tuxbase.com/api/packages/t3code-daily/rpm.repo`.
 
 ## Installed layout
 
