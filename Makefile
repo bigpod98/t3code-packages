@@ -223,7 +223,8 @@ packages: deb rpm
 check-recipes:
 	dpkg-parsechangelog -ldebian/changelog >/dev/null
 	rpmspec --parse rpm/t3code.spec >/dev/null
-	sh -n packaging/build-rpm-container packaging/t3 packaging/t3code
+	sh -n packaging/build-rpm-container packaging/check-packages \
+		packaging/install-test packaging/t3 packaging/t3code
 	grep -Fq 'Exec=t3code %U' packaging/t3code.desktop
 	grep -Fq 'x-scheme-handler/t3code;' packaging/t3code.desktop
 	grep -Fq '<launchable type="desktop-id">t3code.desktop</launchable>' packaging/t3code.metainfo.xml

@@ -6,53 +6,73 @@ require_packages=${2:-0}
 deb_count=0
 rpm_count=0
 
+fail() {
+  echo "Package check failed: $*" >&2
+  exit 1
+}
+
 check_path() {
   manifest=$1
   path=$2
-  printf '%s\n' "$manifest" | grep -Fqx "$path"
+  package=$3
+  if ! printf '%s\n' "$manifest" | grep -Fqx "$path"; then
+    fail "$package does not contain $path"
+  fi
 }
 
 for package in "$dist_dir"/*.deb; do
   test -e "$package" || continue
   deb_count=$((deb_count + 1))
-  dpkg-deb --info "$package" >/dev/null
-  manifest=$(dpkg-deb --fsys-tarfile "$package" | tar -tf -)
-  check_path "$manifest" ./usr/bin/t3
-  check_path "$manifest" ./usr/bin/t3code
-  check_path "$manifest" ./usr/lib/t3code/resources/app.asar
-  check_path "$manifest" ./usr/share/applications/t3code.desktop
-  check_path "$manifest" ./usr/share/metainfo/com.t3tools.t3code.metainfo.xml
-  dpkg-deb --fsys-tarfile "$package" |
-    tar -tvf - ./usr/lib/t3code/chrome-sandbox |
-    grep -Eq '^-rwsr-xr-x[[:space:]]+root/root[[:space:]]'
-  depends=$(dpkg-deb --field "$package" Depends)
-  test -n "$depends"
+  echo "Checking Debian package: $package"
+  dpkg-deb --info "$package" >/dev/null || fail "$package has invalid Debian metadata"
+  manifest=$(dpkg-deb --fsys-tarfile "$package" | tar -tf - | sed 's#^\./#/#') ||
+    fail "$package has an unreadable filesystem archive"
+  check_path "$manifest" /usr/bin/t3 "$package"
+  check_path "$manifest" /usr/bin/t3code "$package"
+  check_path "$manifest" /usr/lib/t3code/resources/app.asar "$package"
+  check_path "$manifest" /usr/share/applications/t3code.desktop "$package"
+  check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml "$package"
+  sandbox_metadata=$(
+    dpkg-deb --fsys-tarfile "$package" |
+      tar -tvf - ./usr/lib/t3code/chrome-sandbox |
+      awk 'NR == 1 { print $1, $2 }'
+  ) || fail "$package has unreadable chrome-sandbox metadata"
+  test "$sandbox_metadata" = "-rwsr-xr-x root/root" ||
+    fail "$package chrome-sandbox metadata is '$sandbox_metadata', expected '-rwsr-xr-x root/root'"
+  depends=$(dpkg-deb --field "$package" Depends) ||
+    fail "$package has an unreadable dependency field"
+  test -n "$depends" || fail "$package has no runtime dependencies"
   case "$depends" in
-    *'${'* ) echo "Unexpanded Debian dependency variable in $package" >&2; exit 1 ;;
+    *'${'* ) fail "$package has an unexpanded Debian dependency variable" ;;
   esac
 done
 
 for package in "$dist_dir"/*.rpm; do
   test -e "$package" || continue
   rpm_count=$((rpm_count + 1))
-  manifest=$(rpm -qlp "$package")
-  check_path "$manifest" /usr/bin/t3
-  check_path "$manifest" /usr/bin/t3code
-  check_path "$manifest" /usr/lib/t3code/resources/app.asar
-  check_path "$manifest" /usr/share/applications/t3code.desktop
-  check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml
-  rpm -qplv "$package" |
-    grep -E '^-rwsr-xr-x[[:space:]]+root[[:space:]]+root.* /usr/lib/t3code/chrome-sandbox$'
-  test -n "$(rpm -qp --requires "$package")"
+  echo "Checking RPM package: $package"
+  manifest=$(rpm -qlp "$package") || fail "$package has invalid RPM metadata"
+  check_path "$manifest" /usr/bin/t3 "$package"
+  check_path "$manifest" /usr/bin/t3code "$package"
+  check_path "$manifest" /usr/lib/t3code/resources/app.asar "$package"
+  check_path "$manifest" /usr/share/applications/t3code.desktop "$package"
+  check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml "$package"
+  sandbox_metadata=$(
+    rpm -qp --queryformat \
+      '[%{FILEMODES:perms} %{FILEUSERNAME}:%{FILEGROUPNAME} %{FILENAMES}\n]' \
+      "$package" |
+      awk '$3 == "/usr/lib/t3code/chrome-sandbox" { print $1, $2 }'
+  ) || fail "$package has unreadable chrome-sandbox metadata"
+  test "$sandbox_metadata" = "-rwsr-xr-x root:root" ||
+    fail "$package chrome-sandbox metadata is '$sandbox_metadata', expected '-rwsr-xr-x root:root'"
+  depends=$(rpm -qp --requires "$package") ||
+    fail "$package has unreadable runtime dependencies"
+  test -n "$depends" || fail "$package has no runtime dependencies"
 done
 
 if test "$require_packages" = 1; then
-  test "$deb_count" -eq 1 || {
-    echo "Expected exactly one DEB in $dist_dir, found $deb_count" >&2
-    exit 1
-  }
-  test "$rpm_count" -eq 1 || {
-    echo "Expected exactly one RPM in $dist_dir, found $rpm_count" >&2
-    exit 1
-  }
+  test "$deb_count" -eq 1 ||
+    fail "expected exactly one DEB in $dist_dir, found $deb_count"
+  test "$rpm_count" -eq 1 ||
+    fail "expected exactly one RPM in $dist_dir, found $rpm_count"
 fi

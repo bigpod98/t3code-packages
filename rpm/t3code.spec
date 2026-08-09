@@ -79,6 +79,7 @@ ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
   %{buildroot}%{t3code_appdir}/resources/app.asar/apps/server/dist/bin.mjs
 
 %files
+%defattr(-,root,root,-)
 %license %{_licensedir}/%{name}/LICENSE
 %{_bindir}/t3
 %{_bindir}/t3code
