@@ -44,7 +44,8 @@ upload_package() {
       echo "Published $package_name"
       ;;
     409)
-      echo "Already published $package_name"
+      echo "Forgejo already has $package_name; refusing to assume the existing bytes match" >&2
+      return 1
       ;;
     *)
       echo "Forgejo rejected $package_name with HTTP $status" >&2

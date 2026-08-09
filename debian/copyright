@@ -7,8 +7,14 @@ Copyright: 2026 Primoz Ajdisek
 License: MIT
 
 Files: payload/*
-Copyright: 2026 T3 Tools Inc.
-License: MIT
+Copyright: 2026 T3 Tools Inc. and the respective bundled component authors
+License: MIT and bundled-third-party
+ T3 Code's own source is licensed under MIT. The generated payload also bundles
+ Electron, Chromium, and production npm dependencies under their respective
+ licenses. The binary package installs the Electron and Chromium license files
+ plus a generated dependency license inventory and THIRD-PARTY-NOTICES.md under
+ /usr/share/doc/t3code; dependency license files retained by electron-builder
+ remain in resources/app.asar and resources/app.asar.unpacked.
 
 Files: packaging/t3code.metainfo.xml
 Copyright: 2026 Primoz Ajdisek
@@ -34,3 +40,10 @@ License: MIT
  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
  SOFTWARE.
+
+License: bundled-third-party
+ The bundled components remain under their respective upstream licenses; this
+ label does not replace or modify those terms. See the installed Electron and
+ Chromium license files, generated dependency license inventory,
+ THIRD-PARTY-NOTICES.md, and the license files retained alongside the bundled
+ npm dependencies for the applicable notices and terms.

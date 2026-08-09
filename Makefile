@@ -42,7 +42,7 @@ TOOLCHAIN_KEY := node$(NODE_VERSION)-pnpm$(PNPM_VERSION)-rust$(RUST_VERSION)
 BUILD_KEY := $(VERSION)-$(RELEASE)-$(PACKAGE_DATE)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)
 PAYLOAD_KEY := $(VERSION)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)-$(TOOLCHAIN_KEY)
 PAYLOAD_DIR := $(BUILD_DIR)/payload/$(RPM_ARCH)/$(PAYLOAD_KEY)
-PAYLOAD_STAMP := $(PAYLOAD_DIR)/.payload-ready
+PAYLOAD_STAMP := $(BUILD_DIR)/payload-stamps/$(RPM_ARCH)/$(PAYLOAD_KEY)/.payload-ready
 DEB_TOPDIR := $(BUILD_DIR)/debian/$(RPM_ARCH)/$(BUILD_KEY)
 DEB_SOURCE_DIR := $(DEB_TOPDIR)/$(NAME)-$(VERSION)
 DEB_STAGE_STAMP := $(DEB_SOURCE_DIR)/.packaging-stage-ready
@@ -120,7 +120,7 @@ $(SOURCE_STAMP): $(SOURCE_ARCHIVE) patches/0001-copy-directory-build-output.patc
 
 source: verify-source $(SOURCE_STAMP)
 
-$(PAYLOAD_STAMP): $(SOURCE_STAMP)
+$(PAYLOAD_STAMP): $(SOURCE_STAMP) Makefile
 	command -v node >/dev/null
 	command -v pnpm >/dev/null
 	command -v cargo >/dev/null
@@ -145,6 +145,10 @@ $(PAYLOAD_STAMP): $(SOURCE_STAMP)
 	cp -a "$(BUILD_DIR)/electron-output/$(UNPACKED_DIR)/." "$(PAYLOAD_DIR)/"
 	cp "$(SOURCE_DIR)/LICENSE" "$(PAYLOAD_DIR)/LICENSE.t3code"
 	cp "$(SOURCE_DIR)/assets/prod/black-universal-1024.png" "$(PAYLOAD_DIR)/t3code.png"
+	cd "$(SOURCE_DIR)" && pnpm licenses list --prod --json \
+		--filter @t3tools/desktop --filter t3 \
+		> "$(PAYLOAD_DIR)/THIRD-PARTY-LICENSES.json"
+	install -d "$(dir $(PAYLOAD_STAMP))"
 	touch "$@"
 	$(MAKE) check-payload
 
@@ -156,7 +160,11 @@ check-payload:
 	test -f "$(PAYLOAD_DIR)/resources/app.asar"
 	test -x "$(PAYLOAD_DIR)/resources/resource-monitor/t3-resource-monitor"
 	test -f "$(PAYLOAD_DIR)/LICENSE.t3code"
+	test -f "$(PAYLOAD_DIR)/LICENSE.electron.txt"
+	test -f "$(PAYLOAD_DIR)/LICENSES.chromium.html"
+	test -s "$(PAYLOAD_DIR)/THIRD-PARTY-LICENSES.json"
 	test -f "$(PAYLOAD_DIR)/t3code.png"
+	test ! -e "$(PAYLOAD_DIR)/.payload-ready"
 	ELECTRON_RUN_AS_NODE=1 "$(PAYLOAD_DIR)/t3code" -e \
 		'const fs = require("node:fs"); const entry = process.argv[1]; if (!fs.statSync(entry).isFile()) throw new Error(`Missing server entry: $${entry}`);' \
 		"$(PAYLOAD_DIR)/resources/app.asar/apps/server/dist/bin.mjs"
@@ -170,7 +178,8 @@ $(DEB_STAGE_STAMP): $(PAYLOAD_STAMP) $(shell find debian packaging -type f | sor
 	cp -a debian "$(DEB_SOURCE_DIR)/"
 	install -d "$(DEB_SOURCE_DIR)/packaging"
 	cp packaging/t3 packaging/t3code packaging/t3code.desktop \
-		packaging/t3code.metainfo.xml "$(DEB_SOURCE_DIR)/packaging/"
+		packaging/t3code.metainfo.xml packaging/THIRD-PARTY-NOTICES.md \
+		"$(DEB_SOURCE_DIR)/packaging/"
 	sed -i -E '1s/^t3code \([^)]*\)/t3code ($(VERSION)-$(RELEASE))/' \
 		"$(DEB_SOURCE_DIR)/debian/changelog"
 	sed -i -E 's#<release version="[^"]+" date="[^"]+"/>#<release version="$(VERSION)" date="$(PACKAGE_DATE)"/>#' \
@@ -187,13 +196,15 @@ deb: $(DEB_STAGE_STAMP)
 		-exec cp -f {} "$(DIST_DIR)/" \;
 
 $(RPM_PAYLOAD): $(PAYLOAD_STAMP) rpm/t3code.spec packaging/t3 packaging/t3code \
-		packaging/t3code.desktop packaging/t3code.metainfo.xml | check-config
+		packaging/t3code.desktop packaging/t3code.metainfo.xml \
+		packaging/THIRD-PARTY-NOTICES.md | check-config
 	install -d "$(RPM_TOPDIR)"/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
 	tar --create --gzip --file "$@" --directory "$(PAYLOAD_DIR)" \
 		--sort=name --mtime="@$(SOURCE_DATE_EPOCH)" --owner=0 --group=0 \
-		--numeric-owner --exclude=.payload-ready .
+		--numeric-owner .
 	cp rpm/t3code.spec "$(RPM_TOPDIR)/SPECS/"
-	cp packaging/t3 packaging/t3code packaging/t3code.desktop "$(RPM_TOPDIR)/SOURCES/"
+	cp packaging/t3 packaging/t3code packaging/t3code.desktop \
+		packaging/THIRD-PARTY-NOTICES.md "$(RPM_TOPDIR)/SOURCES/"
 	sed -E 's#<release version="[^"]+" date="[^"]+"/>#<release version="$(VERSION)" date="$(PACKAGE_DATE)"/>#' \
 		packaging/t3code.metainfo.xml > "$(RPM_TOPDIR)/SOURCES/t3code.metainfo.xml"
 
@@ -228,6 +239,7 @@ check-recipes:
 	grep -Fq 'Exec=t3code %U' packaging/t3code.desktop
 	grep -Fq 'x-scheme-handler/t3code;' packaging/t3code.desktop
 	grep -Fq '<launchable type="desktop-id">t3code.desktop</launchable>' packaging/t3code.metainfo.xml
+	test -s packaging/THIRD-PARTY-NOTICES.md
 
 check-packages:
 	sh packaging/check-packages "$(DIST_DIR)" "$(REQUIRE_PACKAGES)"

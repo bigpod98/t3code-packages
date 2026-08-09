@@ -61,8 +61,10 @@ make rpm
 
 `make packages` reuses the same input-keyed `build/payload/<arch>/` directory
 for both formats. Changing the source, version, timestamp, or toolchain selects
-a fresh payload rather than silently reusing incompatible output. The Makefile
-is orchestration only; the actual native recipes are
+a fresh payload rather than silently reusing incompatible output. Changes to
+the Makefile also invalidate an existing payload stamp so recipe edits cannot
+silently reuse old output. The Makefile is orchestration only; the actual
+native recipes are
 [`debian/rules`](debian/rules) and [`rpm/t3code.spec`](rpm/t3code.spec).
 
 The version and source settings can be overridden through the environment or
@@ -102,8 +104,10 @@ Debian and Fedora containers, smoke-test both launchers, and publish a
 Forgejo publication requires a GitHub Actions secret named `FORGEJO_TOKEN`.
 Its Forgejo user must have package write access to both organizations, and the
 token must have the `write:package` scope. Package uploads begin only after both
-architecture jobs succeed. A repeated upload is treated as already published,
-which makes workflow reruns safe after a partial publication.
+architecture jobs succeed. Publication fails closed if an identical package
+identity already exists because Forgejo's conflict response does not prove that
+the existing and newly built files have the same contents. Delete packages from
+a partial publication before rerunning the same workflow run.
 
 RPM uploads request Forgejo's server-side signing. Forgejo signs each stored RPM
 with the package owner's registry key, matching the `gpgkey` in its generated
@@ -133,6 +137,12 @@ The daily equivalents use owner `t3code-daily`, APT distribution `daily`, and
 /usr/share/metainfo/                    AppStream metadata
 /usr/share/icons/hicolor/               application icon
 ```
+
+The packages install the upstream MIT license together with the Electron and
+Chromium notices, a generated inventory of production dependency licenses, and
+a third-party licensing guide. License files for bundled npm dependencies are
+retained inside the Electron application archive and its unpacked native-module
+tree.
 
 The headless launcher uses Electron's bundled Node mode and loads
 `apps/server/dist/bin.mjs` directly from `resources/app.asar`. Electron's Node

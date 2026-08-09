@@ -20,6 +20,15 @@ check_path() {
   fi
 }
 
+check_absent_path() {
+  manifest=$1
+  path=$2
+  package=$3
+  if printf '%s\n' "$manifest" | grep -Fqx "$path"; then
+    fail "$package unexpectedly contains $path"
+  fi
+}
+
 for package in "$dist_dir"/*.deb; do
   test -e "$package" || continue
   deb_count=$((deb_count + 1))
@@ -32,6 +41,13 @@ for package in "$dist_dir"/*.deb; do
   check_path "$manifest" /usr/lib/t3code/resources/app.asar "$package"
   check_path "$manifest" /usr/share/applications/t3code.desktop "$package"
   check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml "$package"
+  check_path "$manifest" /usr/share/doc/t3code/copyright.upstream "$package"
+  check_path "$manifest" /usr/share/doc/t3code/LICENSE.electron.txt "$package"
+  check_path "$manifest" /usr/share/doc/t3code/LICENSES.chromium.html "$package"
+  check_path "$manifest" /usr/share/doc/t3code/THIRD-PARTY-LICENSES.json "$package"
+  check_path "$manifest" /usr/share/doc/t3code/THIRD-PARTY-NOTICES.md "$package"
+  check_absent_path "$manifest" /usr/lib/t3code/.payload-ready "$package"
+  check_absent_path "$manifest" /usr/lib/t3code/THIRD-PARTY-LICENSES.json "$package"
   sandbox_metadata=$(
     dpkg-deb --fsys-tarfile "$package" |
       tar -tvf - ./usr/lib/t3code/chrome-sandbox |
@@ -57,6 +73,13 @@ for package in "$dist_dir"/*.rpm; do
   check_path "$manifest" /usr/lib/t3code/resources/app.asar "$package"
   check_path "$manifest" /usr/share/applications/t3code.desktop "$package"
   check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml "$package"
+  check_path "$manifest" /usr/share/licenses/t3code/LICENSE "$package"
+  check_path "$manifest" /usr/share/licenses/t3code/LICENSE.electron.txt "$package"
+  check_path "$manifest" /usr/share/licenses/t3code/LICENSES.chromium.html "$package"
+  check_path "$manifest" /usr/share/licenses/t3code/THIRD-PARTY-LICENSES.json "$package"
+  check_path "$manifest" /usr/share/licenses/t3code/THIRD-PARTY-NOTICES.md "$package"
+  check_absent_path "$manifest" /usr/lib/t3code/.payload-ready "$package"
+  check_absent_path "$manifest" /usr/lib/t3code/THIRD-PARTY-LICENSES.json "$package"
   sandbox_metadata=$(
     rpm -qp --queryformat \
       '[%{FILEMODES:perms} %{FILEUSERNAME}:%{FILEGROUPNAME} %{FILENAMES}\n]' \

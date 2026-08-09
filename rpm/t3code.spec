@@ -18,13 +18,14 @@ Summary:        Desktop interface for AI coding agents
 %global __requires_exclude_from ^%{t3code_appdir}/resources/app[.]asar[.]unpacked/node_modules/.*musl.*$
 %global __provides_exclude_from ^%{t3code_appdir}/resources/app[.]asar[.]unpacked/node_modules/.*musl.*$
 
-License:        MIT
+License:        MIT AND BSD-3-Clause AND LicenseRef-T3Code-Bundled-Third-Party
 URL:            https://t3.codes/
 Source0:        %{name}-payload-%{version}-%{_arch}.tar.gz
 Source1:        t3code
 Source2:        t3
 Source3:        t3code.desktop
 Source4:        t3code.metainfo.xml
+Source5:        THIRD-PARTY-NOTICES.md
 
 ExclusiveArch:  x86_64 aarch64
 BuildRequires:  desktop-file-utils
@@ -69,8 +70,19 @@ install -D -m 0644 t3code.png \
   %{buildroot}%{_datadir}/icons/hicolor/1024x1024/apps/t3code.png
 install -D -m 0644 LICENSE.t3code \
   %{buildroot}%{_licensedir}/%{name}/LICENSE
+install -D -m 0644 LICENSE.electron.txt \
+  %{buildroot}%{_licensedir}/%{name}/LICENSE.electron.txt
+install -D -m 0644 LICENSES.chromium.html \
+  %{buildroot}%{_licensedir}/%{name}/LICENSES.chromium.html
+install -D -m 0644 %{SOURCE5} \
+  %{buildroot}%{_licensedir}/%{name}/THIRD-PARTY-NOTICES.md
+install -D -m 0644 THIRD-PARTY-LICENSES.json \
+  %{buildroot}%{_licensedir}/%{name}/THIRD-PARTY-LICENSES.json
 rm -f %{buildroot}%{t3code_appdir}/t3code.png
 rm -f %{buildroot}%{t3code_appdir}/LICENSE.t3code
+rm -f %{buildroot}%{t3code_appdir}/LICENSE.electron.txt
+rm -f %{buildroot}%{t3code_appdir}/LICENSES.chromium.html
+rm -f %{buildroot}%{t3code_appdir}/THIRD-PARTY-LICENSES.json
 chmod 4755 %{buildroot}%{t3code_appdir}/chrome-sandbox
 
 %check
@@ -88,6 +100,10 @@ ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
 %files
 %defattr(-,root,root,-)
 %license %{_licensedir}/%{name}/LICENSE
+%license %{_licensedir}/%{name}/LICENSE.electron.txt
+%license %{_licensedir}/%{name}/LICENSES.chromium.html
+%license %{_licensedir}/%{name}/THIRD-PARTY-LICENSES.json
+%license %{_licensedir}/%{name}/THIRD-PARTY-NOTICES.md
 %{_bindir}/t3
 %{_bindir}/t3code
 %{t3code_appdir}/
