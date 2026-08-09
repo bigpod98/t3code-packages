@@ -24,6 +24,7 @@ override_dh_auto_install:
 		debian/t3code/usr/share/doc/t3code/copyright.upstream
 	rm -f debian/t3code/usr/lib/t3code/t3code.png
 	rm -f debian/t3code/usr/lib/t3code/LICENSE.t3code
+	rm -f debian/t3code/usr/lib/t3code/.payload-ready
 
 override_dh_fixperms:
 	dh_fixperms

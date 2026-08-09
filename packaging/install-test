@@ -7,6 +7,7 @@ dist_dir=$(cd "$dist_dir" && pwd)
 command -v docker >/dev/null
 test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
 test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.rpm' | wc -l)" -eq 1
+test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.apk' | wc -l)" -eq 1
 
 docker run --rm --volume "$dist_dir:/packages:ro" debian:13-slim sh -euxc '
   apt-get update
@@ -22,3 +23,28 @@ docker run --rm --volume "$dist_dir:/packages:ro" fedora:43 sh -euxc '
   ELECTRON_RUN_AS_NODE=1 t3code --version
   timeout 30 t3 --help >/dev/null
 '
+
+docker run --rm --volume "$dist_dir:/packages:ro" alpine:3.23 sh -euxc '
+  apk add --allow-untrusted /packages/*.apk
+  test "$(stat -c %a /usr/lib/t3code/chrome-sandbox)" = 4755
+  ELECTRON_RUN_AS_NODE=1 t3code --version
+  timeout 30 t3 --help >/dev/null
+'
+
+if test "$(uname -m)" = x86_64; then
+  test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.pkg.tar.*' | wc -l)" -eq 1
+  docker run --rm --volume "$dist_dir:/packages:ro" archlinux:base-devel bash -euxc '
+    pacman --sync --refresh --noconfirm
+    pacman --sync --needed --noconfirm \
+      alsa-lib at-spi2-core dbus expat gtk3 libcups libdrm libgcc libnotify \
+      libsecret libstdc++ libx11 libxcb libxcomposite libxdamage libxext \
+      libxfixes libxkbcommon \
+      libxrandr libxrender libxss libxtst mesa namcap nspr nss pango \
+      util-linux-libs xdg-utils
+    namcap /packages/*.pkg.tar.*
+    pacman --upgrade --noconfirm /packages/*.pkg.tar.*
+    test "$(stat -c %a /usr/lib/t3code/chrome-sandbox)" = 4755
+    ELECTRON_RUN_AS_NODE=1 t3code --version
+    timeout 30 t3 --help >/dev/null
+  '
+fi

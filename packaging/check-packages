@@ -3,8 +3,11 @@ set -eu
 
 dist_dir=${1:-dist}
 require_packages=${2:-0}
+require_arch_package=${3:-0}
 deb_count=0
 rpm_count=0
+arch_count=0
+apk_count=0
 
 check_path() {
   manifest=$1
@@ -46,6 +49,32 @@ for package in "$dist_dir"/*.rpm; do
   test -n "$(rpm -qp --requires "$package")"
 done
 
+for package in "$dist_dir"/*.pkg.tar.*; do
+  test -e "$package" || continue
+  arch_count=$((arch_count + 1))
+  manifest=$(bsdtar -tf "$package")
+  check_path "$manifest" usr/bin/t3
+  check_path "$manifest" usr/bin/t3code
+  check_path "$manifest" usr/lib/t3code/resources/app.asar
+  check_path "$manifest" usr/share/applications/t3code.desktop
+  check_path "$manifest" usr/share/metainfo/com.t3tools.t3code.metainfo.xml
+  if printf '%s\n' "$manifest" | grep -Fq '.payload-ready'; then
+    echo "Internal payload stamp leaked into $package" >&2
+    exit 1
+  fi
+  bsdtar -tvf "$package" |
+    grep -E '^-rwsr-xr-x.* usr/lib/t3code/chrome-sandbox$'
+done
+
+for package in "$dist_dir"/*.apk; do
+  test -e "$package" || continue
+  apk_count=$((apk_count + 1))
+  command -v melange >/dev/null
+  melange lint \
+    --lint-require dev,infodir,libtool/la-files,tempdir,usrmerge,varempty,worldwrite \
+    "$package"
+done
+
 if test "$require_packages" = 1; then
   test "$deb_count" -eq 1 || {
     echo "Expected exactly one DEB in $dist_dir, found $deb_count" >&2
@@ -53,6 +82,14 @@ if test "$require_packages" = 1; then
   }
   test "$rpm_count" -eq 1 || {
     echo "Expected exactly one RPM in $dist_dir, found $rpm_count" >&2
+    exit 1
+  }
+  test "$arch_count" -eq "$require_arch_package" || {
+    echo "Expected $require_arch_package Arch package in $dist_dir, found $arch_count" >&2
+    exit 1
+  }
+  test "$apk_count" -eq 1 || {
+    echo "Expected exactly one APK in $dist_dir, found $apk_count" >&2
     exit 1
   }
 fi

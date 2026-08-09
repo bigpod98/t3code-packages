@@ -67,13 +67,18 @@ jobs:
       matrix:
         include:
           - arch: x86_64
+            melange_arch: amd64
+            melange_sha256: 9623b8da6b1955ea34a3389954ce613cc9f3bb17939dab640af87cab541f0cfa
             runner: ubuntu-24.04
           - arch: aarch64
+            melange_arch: arm64
+            melange_sha256: 8d0608cb1978ffbf29c207a2b289e0c091558de940ebaaaec8bd5ea473eb8ecf
             runner: ubuntu-24.04-arm
     env:
       PACKAGE_DATE: ${{ needs.resolve.outputs.package_date }}
       NODE_VERSION: 24.13.1
       PNPM_VERSION: 11.10.0
+      MELANGE_VERSION: 0.57.0
       RELEASE: ${{ github.run_number }}
       SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
       SOURCE_DATE_EPOCH: ${{ needs.resolve.outputs.source_date_epoch }}
@@ -96,10 +101,28 @@ jobs:
             dpkg-dev \
             fakeroot \
             imagemagick \
+            libarchive-tools \
             libsecret-1-dev \
             lintian \
             rpmlint \
-            rpm
+            rpm \
+            zstd
+
+      - name: Setup Melange
+        env:
+          MELANGE_ARCH: ${{ matrix.melange_arch }}
+          MELANGE_SHA256: ${{ matrix.melange_sha256 }}
+        run: |
+          set -euo pipefail
+          archive="melange_${MELANGE_VERSION}_linux_${MELANGE_ARCH}.tar.gz"
+          url="https://github.com/chainguard-dev/melange/releases/download/v${MELANGE_VERSION}/${archive}"
+          curl --fail --location --output "$RUNNER_TEMP/$archive" "$url"
+          printf '%s  %s\n' "$MELANGE_SHA256" "$RUNNER_TEMP/$archive" |
+            sha256sum --check --status
+          install -d "$RUNNER_TEMP/melange"
+          tar --extract --gzip --file "$RUNNER_TEMP/$archive" \
+            --strip-components=1 --directory "$RUNNER_TEMP/melange"
+          echo "$RUNNER_TEMP/melange" >> "$GITHUB_PATH"
 
       - name: Setup Node.js
         uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
@@ -131,7 +154,11 @@ jobs:
         run: make install-test
 
       - name: Write package checksums
-        run: sha256sum dist/*.deb dist/*.rpm > dist/SHA256SUMS
+        run: |
+          cd dist
+          find . -maxdepth 1 -type f ! -name SHA256SUMS -print0 |
+            sort --zero-terminated |
+            xargs --null sha256sum > SHA256SUMS
 
       - name: Upload packages
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -140,6 +167,9 @@ jobs:
           path: |
             dist/*.deb
             dist/*.rpm
+            dist/*.apk
+            dist/*.pkg.tar.*
+            dist/*.attest.tar.gz
             dist/SHA256SUMS
           if-no-files-found: error
           retention-days: 30

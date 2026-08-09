@@ -1,0 +1,91 @@
+package:
+  name: t3code
+  version: 0.0.32
+  epoch: 1
+  description: Desktop interface for AI coding agents
+  url: https://t3.codes/
+  target-architecture:
+    - x86_64
+    - aarch64
+  copyright:
+    - license: MIT
+      attestation: Copyright 2026 T3 Tools Inc. and Primoz Ajdisek
+    - license: CC0-1.0
+      paths:
+        - usr/share/metainfo/com.t3tools.t3code.metainfo.xml
+  dependencies:
+    runtime:
+      - alsa-lib
+      - at-spi2-core
+      - ca-certificates
+      - cups-libs
+      - dbus-libs
+      - eudev-libs
+      - expat
+      - gcompat
+      - gtk+3.0
+      - libdrm
+      - libgcc
+      - libnotify
+      - libsecret
+      - libstdc++
+      - libx11
+      - libxcb
+      - libxcomposite
+      - libxdamage
+      - libxext
+      - libxfixes
+      - libxkbcommon
+      - libxrandr
+      - libxrender
+      - libxss
+      - libxtst
+      - mesa-gbm
+      - nspr
+      - nss
+      - pango
+      - util-linux-libs
+      - xdg-utils
+      - zlib
+  checks:
+    disabled:
+      # Electron requires its Chromium sandbox helper to be root-owned setuid.
+      - setuidgid
+  # The payload contains glibc-linked Electron and native modules. gcompat
+  # supplies Alpine's compatibility ABI, so generated glibc soname dependencies
+  # would be both redundant and unresolvable in Alpine's musl repositories.
+  options:
+    no-depends: true
+
+environment:
+  accounts:
+    run-as: root
+  contents:
+    repositories:
+      - https://dl-cdn.alpinelinux.org/alpine/v3.23/main
+      - https://dl-cdn.alpinelinux.org/alpine/v3.23/community
+    packages:
+      - alpine-baselayout-data
+      - busybox
+      - scanelf
+
+pipeline:
+  - name: Install the prebuilt Electron payload
+    runs: |
+      install -d "${{targets.destdir}}/usr/lib/t3code"
+      cp -a "${{package.srcdir}}/payload/." "${{targets.destdir}}/usr/lib/t3code/"
+      install -D -m 0755 "${{package.srcdir}}/packaging/t3code" \
+        "${{targets.destdir}}/usr/bin/t3code"
+      install -D -m 0755 "${{package.srcdir}}/packaging/t3" \
+        "${{targets.destdir}}/usr/bin/t3"
+      install -D -m 0644 "${{package.srcdir}}/packaging/t3code.desktop" \
+        "${{targets.destdir}}/usr/share/applications/t3code.desktop"
+      install -D -m 0644 "${{package.srcdir}}/packaging/t3code.metainfo.xml" \
+        "${{targets.destdir}}/usr/share/metainfo/com.t3tools.t3code.metainfo.xml"
+      install -D -m 0644 "${{package.srcdir}}/payload/t3code.png" \
+        "${{targets.destdir}}/usr/share/icons/hicolor/1024x1024/apps/t3code.png"
+      install -D -m 0644 "${{package.srcdir}}/payload/LICENSE.t3code" \
+        "${{targets.destdir}}/usr/share/licenses/t3code/LICENSE"
+      rm -f "${{targets.destdir}}/usr/lib/t3code/t3code.png"
+      rm -f "${{targets.destdir}}/usr/lib/t3code/LICENSE.t3code"
+      chmod 4755 "${{targets.destdir}}/usr/lib/t3code/chrome-sandbox"

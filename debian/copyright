@@ -2,7 +2,7 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: T3 Code
 Source: https://github.com/pingdotgg/t3code
 
-Files: Makefile debian/* packaging/* patches/* rpm/*
+Files: Makefile alpine/* arch/* debian/* packaging/* patches/* rpm/*
 Copyright: 2026 Primoz Ajdisek
 License: MIT
 
