@@ -72,6 +72,11 @@ appstream-util validate-relax --nonet \
   %{buildroot}%{_metainfodir}/com.t3tools.t3code.metainfo.xml
 test -x %{buildroot}%{t3code_appdir}/t3code
 test -f %{buildroot}%{t3code_appdir}/resources/app.asar
+test -x %{buildroot}%{t3code_appdir}/resources/resource-monitor/t3-resource-monitor
+test -u %{buildroot}%{t3code_appdir}/chrome-sandbox
+ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
+  'const fs = require("node:fs"); const entry = process.argv[1]; if (!fs.statSync(entry).isFile()) process.exit(1);' \
+  %{buildroot}%{t3code_appdir}/resources/app.asar/apps/server/dist/bin.mjs
 
 %files
 %license %{_licensedir}/%{name}/LICENSE

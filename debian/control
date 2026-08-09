@@ -13,6 +13,7 @@ Package: t3code
 Architecture: amd64 arm64
 Depends:
  ${misc:Depends},
+ ${shlibs:Depends},
  libasound2t64 | libasound2,
  libatspi2.0-0,
  libgbm1,
@@ -28,4 +29,3 @@ Description: desktop interface for AI coding agents
  T3 Code controls coding agents installed on the local machine, including
  Codex, Claude, Cursor, Grok Build, and OpenCode. This package contains both
  the graphical t3code command and the bundled headless t3 server command.
-

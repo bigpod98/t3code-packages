@@ -1,0 +1,58 @@
+#!/bin/sh
+set -eu
+
+dist_dir=${1:-dist}
+require_packages=${2:-0}
+deb_count=0
+rpm_count=0
+
+check_path() {
+  manifest=$1
+  path=$2
+  printf '%s\n' "$manifest" | grep -Fqx "$path"
+}
+
+for package in "$dist_dir"/*.deb; do
+  test -e "$package" || continue
+  deb_count=$((deb_count + 1))
+  dpkg-deb --info "$package" >/dev/null
+  manifest=$(dpkg-deb --fsys-tarfile "$package" | tar -tf -)
+  check_path "$manifest" ./usr/bin/t3
+  check_path "$manifest" ./usr/bin/t3code
+  check_path "$manifest" ./usr/lib/t3code/resources/app.asar
+  check_path "$manifest" ./usr/share/applications/t3code.desktop
+  check_path "$manifest" ./usr/share/metainfo/com.t3tools.t3code.metainfo.xml
+  dpkg-deb --fsys-tarfile "$package" |
+    tar -tvf - ./usr/lib/t3code/chrome-sandbox |
+    grep -Eq '^-rwsr-xr-x[[:space:]]+root/root[[:space:]]'
+  depends=$(dpkg-deb --field "$package" Depends)
+  test -n "$depends"
+  case "$depends" in
+    *'${'* ) echo "Unexpanded Debian dependency variable in $package" >&2; exit 1 ;;
+  esac
+done
+
+for package in "$dist_dir"/*.rpm; do
+  test -e "$package" || continue
+  rpm_count=$((rpm_count + 1))
+  manifest=$(rpm -qlp "$package")
+  check_path "$manifest" /usr/bin/t3
+  check_path "$manifest" /usr/bin/t3code
+  check_path "$manifest" /usr/lib/t3code/resources/app.asar
+  check_path "$manifest" /usr/share/applications/t3code.desktop
+  check_path "$manifest" /usr/share/metainfo/com.t3tools.t3code.metainfo.xml
+  rpm -qplv "$package" |
+    grep -E '^-rwsr-xr-x[[:space:]]+root[[:space:]]+root.* /usr/lib/t3code/chrome-sandbox$'
+  test -n "$(rpm -qp --requires "$package")"
+done
+
+if test "$require_packages" = 1; then
+  test "$deb_count" -eq 1 || {
+    echo "Expected exactly one DEB in $dist_dir, found $deb_count" >&2
+    exit 1
+  }
+  test "$rpm_count" -eq 1 || {
+    echo "Expected exactly one RPM in $dist_dir, found $rpm_count" >&2
+    exit 1
+  }
+fi

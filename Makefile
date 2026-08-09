@@ -6,6 +6,9 @@ NAME := t3code
 VERSION ?= 0.0.32
 RELEASE ?= 1
 PACKAGE_DATE ?= 2026-08-07
+NODE_VERSION ?= 24.13.1
+PNPM_VERSION ?= 11.10.0
+RUST_VERSION ?= 1.97.1
 
 SOURCE_REPOSITORY ?= https://github.com/pingdotgg/t3code
 SOURCE_COMMIT ?= 239ef1c54df2f657912ccb5b8e25193d49d90417
@@ -34,14 +37,19 @@ else
   $(error Unsupported host architecture '$(HOST_ARCH)'; supported: x86_64, aarch64)
 endif
 
-PAYLOAD_DIR := $(BUILD_DIR)/payload/$(RPM_ARCH)
+TOOLCHAIN_KEY := node$(NODE_VERSION)-pnpm$(PNPM_VERSION)-rust$(RUST_VERSION)
+BUILD_KEY := $(VERSION)-$(RELEASE)-$(PACKAGE_DATE)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)
+PAYLOAD_KEY := $(VERSION)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)-$(TOOLCHAIN_KEY)
+PAYLOAD_DIR := $(BUILD_DIR)/payload/$(RPM_ARCH)/$(PAYLOAD_KEY)
 PAYLOAD_STAMP := $(PAYLOAD_DIR)/.payload-ready
-DEB_SOURCE_DIR := $(BUILD_DIR)/debian/$(NAME)-$(VERSION)
+DEB_TOPDIR := $(BUILD_DIR)/debian/$(RPM_ARCH)/$(BUILD_KEY)
+DEB_SOURCE_DIR := $(DEB_TOPDIR)/$(NAME)-$(VERSION)
 DEB_STAGE_STAMP := $(DEB_SOURCE_DIR)/.packaging-stage-ready
-RPM_TOPDIR := $(BUILD_DIR)/rpm
+RPM_TOPDIR := $(BUILD_DIR)/rpm/$(RPM_ARCH)/$(BUILD_KEY)
 RPM_PAYLOAD := $(RPM_TOPDIR)/SOURCES/$(NAME)-payload-$(VERSION)-$(RPM_ARCH).tar.gz
 
-.PHONY: help source payload check-payload deb rpm packages check check-config check-recipes clean
+.PHONY: help source verify-source payload check-payload deb rpm packages check \
+	check-config check-recipes check-packages install-test clean
 
 help:
 	@echo "T3 Code native Linux packaging"
@@ -51,6 +59,7 @@ help:
 	@echo "  make rpm           build an RPM with rpmbuild"
 	@echo "  make packages      build both packages from the same payload"
 	@echo "  make check         validate recipes and any existing payload/packages"
+	@echo "  make install-test  install packages in Debian and Fedora containers"
 	@echo "  make clean         remove only ./build and ./dist"
 
 check-config:
@@ -62,6 +71,12 @@ check-config:
 		{ echo "SOURCE_COMMIT must be a full 40-character commit SHA" >&2; exit 1; }
 	@printf '%s\n' "$(SOURCE_DATE_EPOCH)" | grep -Eq '^[0-9]+$$' || \
 		{ echo "SOURCE_DATE_EPOCH must be a Unix timestamp" >&2; exit 1; }
+	@printf '%s\n' "$(NODE_VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || \
+		{ echo "NODE_VERSION must be an exact Node.js version" >&2; exit 1; }
+	@printf '%s\n' "$(PNPM_VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || \
+		{ echo "PNPM_VERSION must be an exact pnpm version" >&2; exit 1; }
+	@printf '%s\n' "$(RUST_VERSION)" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$$' || \
+		{ echo "RUST_VERSION must be an exact stable Rust version" >&2; exit 1; }
 	@if test -n "$(SOURCE_SHA256)"; then \
 		printf '%s\n' "$(SOURCE_SHA256)" | grep -Eq '^[0-9a-fA-F]{64}$$' || \
 			{ echo "SOURCE_SHA256 must be empty or a 64-character SHA-256" >&2; exit 1; }; \
@@ -71,14 +86,17 @@ $(SOURCE_ARCHIVE): | check-config
 	install -d "$(DOWNLOAD_DIR)"
 	curl --fail --location --output "$@" \
 		"$(SOURCE_REPOSITORY)/archive/$(SOURCE_COMMIT).tar.gz"
+
+verify-source: $(SOURCE_ARCHIVE) | check-config
 	@if test -n "$(SOURCE_SHA256)"; then \
-		printf '%s  %s\n' "$(SOURCE_SHA256)" "$@" | sha256sum --check --status; \
+		printf '%s  %s\n' "$(SOURCE_SHA256)" "$(SOURCE_ARCHIVE)" | \
+			sha256sum --check --status; \
 	else \
 		echo "No predeclared archive digest; resolved immutable commit $(SOURCE_COMMIT):"; \
-		sha256sum "$@"; \
+		sha256sum "$(SOURCE_ARCHIVE)"; \
 	fi
 
-$(SOURCE_STAMP): $(SOURCE_ARCHIVE) patches/0001-copy-directory-build-output.patch
+$(SOURCE_STAMP): $(SOURCE_ARCHIVE) patches/0001-copy-directory-build-output.patch | verify-source
 	test "$(BUILD_DIR)" != / && test -n "$(SOURCE_COMMIT)"
 	rm -rf "$(SOURCE_DIR)"
 	install -d "$(SOURCE_DIR)"
@@ -99,17 +117,21 @@ $(SOURCE_STAMP): $(SOURCE_ARCHIVE) patches/0001-copy-directory-build-output.patc
 	fi
 	touch "$@"
 
-source: $(SOURCE_STAMP)
+source: verify-source $(SOURCE_STAMP)
 
 $(PAYLOAD_STAMP): $(SOURCE_STAMP)
 	command -v node >/dev/null
 	command -v pnpm >/dev/null
 	command -v cargo >/dev/null
 	(command -v magick >/dev/null || command -v convert >/dev/null)
+	test "$$(node --version)" = "v$(NODE_VERSION)"
+	test "$$(pnpm --version)" = "$(PNPM_VERSION)"
+	test "$$(rustc --version | awk '{ print $$2 }')" = "$(RUST_VERSION)"
 	cd "$(SOURCE_DIR)" && pnpm install --frozen-lockfile
 	test "$(BUILD_DIR)" != /
 	rm -rf "$(BUILD_DIR)/electron-output"
-	cd "$(SOURCE_DIR)" && pnpm exec vp run dist:desktop:artifact -- \
+	cd "$(SOURCE_DIR)" && SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		pnpm exec vp run dist:desktop:artifact -- \
 		--platform linux \
 		--target dir \
 		--arch "$(ELECTRON_ARCH)" \
@@ -131,9 +153,12 @@ check-payload:
 	test -x "$(PAYLOAD_DIR)/t3code"
 	test -x "$(PAYLOAD_DIR)/chrome-sandbox"
 	test -f "$(PAYLOAD_DIR)/resources/app.asar"
-	test -f "$(PAYLOAD_DIR)/resources/resource-monitor/t3-resource-monitor"
+	test -x "$(PAYLOAD_DIR)/resources/resource-monitor/t3-resource-monitor"
 	test -f "$(PAYLOAD_DIR)/LICENSE.t3code"
 	test -f "$(PAYLOAD_DIR)/t3code.png"
+	ELECTRON_RUN_AS_NODE=1 "$(PAYLOAD_DIR)/t3code" -e \
+		'const fs = require("node:fs"); const entry = process.argv[1]; if (!fs.statSync(entry).isFile()) throw new Error(`Missing server entry: $${entry}`);' \
+		"$(PAYLOAD_DIR)/resources/app.asar/apps/server/dist/bin.mjs"
 	sh -n packaging/t3 packaging/t3code
 
 $(DEB_STAGE_STAMP): $(PAYLOAD_STAMP) $(shell find debian packaging -type f | sort) | check-config
@@ -157,7 +182,7 @@ deb: $(DEB_STAGE_STAMP)
 	cd "$(DEB_SOURCE_DIR)" && SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
 		dpkg-buildpackage --build=binary --no-sign
 	install -d "$(DIST_DIR)"
-	find "$(BUILD_DIR)/debian" -maxdepth 1 -type f -name '$(NAME)_*.deb' \
+	find "$(DEB_TOPDIR)" -maxdepth 1 -type f -name '$(NAME)_*.deb' \
 		-exec cp -f {} "$(DIST_DIR)/" \;
 
 $(RPM_PAYLOAD): $(PAYLOAD_STAMP) rpm/t3code.spec packaging/t3 packaging/t3code \
@@ -190,7 +215,13 @@ check-recipes:
 	grep -Fq 'x-scheme-handler/t3code;' packaging/t3code.desktop
 	grep -Fq '<launchable type="desktop-id">t3code.desktop</launchable>' packaging/t3code.metainfo.xml
 
-check: check-config check-recipes
+check-packages:
+	sh packaging/check-packages "$(DIST_DIR)" "$(REQUIRE_PACKAGES)"
+
+install-test:
+	sh packaging/install-test "$(DIST_DIR)"
+
+check: check-config check-recipes check-packages
 	@if test -f "$(PAYLOAD_STAMP)"; then $(MAKE) check-payload; fi
 	@if command -v desktop-file-validate >/dev/null; then \
 		desktop-file-validate packaging/t3code.desktop; \
@@ -198,9 +229,13 @@ check: check-config check-recipes
 	@if command -v appstreamcli >/dev/null; then \
 		appstreamcli validate --no-net packaging/t3code.metainfo.xml; \
 	fi
+	@if test "$(REQUIRE_PACKAGES)" = 1; then \
+		command -v lintian >/dev/null; \
+		command -v rpmlint >/dev/null; \
+	fi
 	@if command -v lintian >/dev/null; then \
 		for package in "$(DIST_DIR)"/*.deb; do \
-			test -e "$$package" || continue; lintian "$$package"; \
+			test -e "$$package" || continue; lintian --fail-on error "$$package"; \
 		done; \
 	fi
 	@if command -v rpmlint >/dev/null; then \

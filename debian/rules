@@ -29,11 +29,8 @@ override_dh_fixperms:
 	dh_fixperms
 	chmod 4755 debian/t3code/usr/lib/t3code/chrome-sandbox
 
-# Preserve the tested Electron payload byte-for-byte. Its runtime library
-# contract is declared explicitly in debian/control.
+# Preserve the tested Electron payload byte-for-byte. dh_shlibdeps still scans
+# every ELF object so new Electron and native-module dependencies are detected.
 override_dh_strip:
 
 override_dh_dwz:
-
-override_dh_shlibdeps:
-

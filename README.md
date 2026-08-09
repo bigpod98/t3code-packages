@@ -22,7 +22,7 @@ dependency names target current Fedora and RHEL-family distributions.
 
 ## Build requirements
 
-Building the payload requires Node.js 24.13.1, pnpm 11.10.0, Rust with the
+Building the payload requires Node.js 24.13.1, pnpm 11.10.0, Rust 1.97.1 with the
 matching GNU Linux target, ImageMagick, a C/C++ toolchain, and normal Electron
 native-module build prerequisites. The source commit and archive SHA-256 are
 pinned in `Makefile`.
@@ -31,6 +31,10 @@ Package formation additionally requires:
 
 - DEB: `dpkg-dev`, `debhelper`, and `fakeroot`
 - RPM: `rpm-build`, `desktop-file-utils`, and `libappstream-glib`
+
+Full package validation additionally uses `lintian`, `rpmlint`, and Docker.
+The Docker checks install and smoke-test the packages in Debian 13 and Fedora
+43 containers on the native build architecture.
 
 The source build downloads the dependency graph locked by `pnpm-lock.yaml`.
 That is appropriate for vendor packages and CI, but it is not acceptable for
@@ -44,6 +48,7 @@ fully declaring bundled components.
 make payload
 make packages
 make check
+make install-test
 ```
 
 Outputs are written to `dist/`. To build one format only:
@@ -53,14 +58,18 @@ make deb
 make rpm
 ```
 
-`make packages` reuses the same `build/payload/<arch>` directory for both
-formats. The Makefile is orchestration only; the actual native recipes are
+`make packages` reuses the same input-keyed `build/payload/<arch>/` directory
+for both formats. Changing the source, version, timestamp, or toolchain selects
+a fresh payload rather than silently reusing incompatible output. The Makefile
+is orchestration only; the actual native recipes are
 [`debian/rules`](debian/rules) and [`rpm/t3code.spec`](rpm/t3code.spec).
 
 The version and source settings can be overridden through the environment or
 on the `make` command line. Dynamic builds must supply a full commit SHA. An
-empty `SOURCE_SHA256` is supported for CI jobs that first resolve an immutable
-commit through the GitHub API; the downloaded archive's digest is still logged.
+empty `SOURCE_SHA256` is supported for exploratory builds that resolve an
+immutable commit dynamically; the downloaded archive's digest is still logged.
+Automated builds resolve the digest before starting the architecture matrix and
+verify every download against it.
 
 ```sh
 make packages \
@@ -81,7 +90,11 @@ make packages \
 
 Both workflows build on native x86-64 and ARM64 Ubuntu runners, form both DEB
 and RPM packages from the same per-architecture payload, and retain the results
-as workflow artifacts. They do not publish or replace GitHub releases.
+as workflow artifacts. Every workflow run is a distinct package release, even
+when the upstream stable version has not changed. The workflows lint the
+packages, install them in Debian and Fedora containers, smoke-test both
+launchers, and publish a `SHA256SUMS` file. They do not publish or replace
+GitHub releases.
 
 ## Installed layout
 
