@@ -1,0 +1,28 @@
+# The zero-length file is an upstream architecture-package marker consumed by
+# msgpackr-extract's JavaScript loader.
+addFilter("zero-length /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-[^/]+/index[.]js$")
+
+# Electron requires its chrome-sandbox helper to be setuid on systems where
+# unprivileged user namespaces are unavailable. The package checks assert the
+# exact mode and root ownership separately.
+addFilter("setuid-binary /usr/lib/t3code/chrome-sandbox root 4755$")
+addFilter("non-standard-executable-perm /usr/lib/t3code/chrome-sandbox 4755$")
+
+# These are inert Windows support sources bundled in upstream node-pty, not
+# scripts invoked by the Linux application.
+addFilter("non-executable-script /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/node-pty/deps/winpty/.* 644 ")
+
+# CI artifacts are intentionally unsigned. Packager and Group are omitted
+# because Fedora build systems supply the former and modern RPM does not require
+# the obsolete Group tag.
+addFilter("no-signature$")
+addFilter("no-packager-tag$")
+addFilter("no-group-tag$")
+
+# node-pty is a regular native Node module, not a privileged helper. rpmlint's
+# symbol-only scan mistakes its embedded library calls for a setuid code path.
+addFilter("missing-call-to-setgroups-before-setuid /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/node-pty/build/Release/pty[.]node$")
+
+# These explicit dependencies cover Electron libraries that may be loaded at
+# runtime rather than represented by ordinary ELF DT_NEEDED entries.
+addFilter("explicit-lib-dependency (alsa-lib|libXScrnSaver|libXtst|libnotify|libsecret|libuuid)$")

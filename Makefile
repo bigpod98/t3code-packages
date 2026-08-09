@@ -254,7 +254,8 @@ check: check-config check-recipes check-packages
 	fi
 	@if command -v rpmlint >/dev/null; then \
 		for package in "$(DIST_DIR)"/*.rpm; do \
-			test -e "$$package" || continue; rpmlint "$$package"; \
+			test -e "$$package" || continue; \
+			rpmlint --rpmlintrc rpm/t3code.rpmlintrc "$$package"; \
 		done; \
 	fi
 
