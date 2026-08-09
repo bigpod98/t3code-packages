@@ -11,6 +11,13 @@ Summary:        Desktop interface for AI coding agents
 %{!?_metainfodir:%global _metainfodir %{_datadir}/metainfo}
 %global t3code_appdir %{_prefix}/lib/t3code
 
+# The Electron payload includes musl fallback modules alongside the target's
+# glibc modules. Fedora cannot satisfy their unversioned libc.so requirement,
+# and they are not loaded on Fedora. Keep automatic dependency generation for
+# the target binaries while excluding only those private fallbacks.
+%global __requires_exclude_from ^%{t3code_appdir}/resources/app[.]asar[.]unpacked/node_modules/.*musl.*$
+%global __provides_exclude_from ^%{t3code_appdir}/resources/app[.]asar[.]unpacked/node_modules/.*musl.*$
+
 License:        MIT
 URL:            https://t3.codes/
 Source0:        %{name}-payload-%{version}-%{_arch}.tar.gz
