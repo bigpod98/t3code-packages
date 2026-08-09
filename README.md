@@ -105,6 +105,13 @@ token must have the `write:package` scope. Package uploads begin only after both
 architecture jobs succeed. A repeated upload is treated as already published,
 which makes workflow reruns safe after a partial publication.
 
+RPM uploads request Forgejo's server-side signing. Forgejo signs each stored RPM
+with the package owner's registry key, matching the `gpgkey` in its generated
+`.repo` file. The locally built workflow artifacts remain unsigned. Forgejo
+signs Debian repository metadata itself, so DEB uploads do not request package
+signing; APT clients trust the owner key from the registry's `repository.key`
+endpoint.
+
 The stable repositories are available at these endpoints once the
 `t3code-stable` organization exists and its package registry is public:
 

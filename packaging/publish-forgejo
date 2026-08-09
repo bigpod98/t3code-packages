@@ -69,5 +69,5 @@ done
 
 for package in "$dist_dir"/*.rpm; do
   upload_package "$package" \
-    "$forgejo_url/api/packages/$owner/rpm/upload"
+    "$forgejo_url/api/packages/$owner/rpm/upload?sign=true"
 done
