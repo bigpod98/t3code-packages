@@ -1,3 +1,6 @@
+#if anyone wants the packages my packaged versions are avaialble at https://git.tuxbase.com/t3code-stable/-/packages and https://git.tuxbase.com/t3code-daily/-/packages i have setup repos for both deb and rpm
+
+
 # T3 Code native DEB and RPM packaging
 
 This repository provides unofficial Linux packages for T3 Code. It builds from
