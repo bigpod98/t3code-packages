@@ -1,3 +1,9 @@
+t3code (0.0.34-1) unstable; urgency=medium
+
+  * Update to upstream release 0.0.34.
+
+ -- Primoz Ajdisek <bigpod@bigpod.si>  Wed, 26 Aug 2026 02:32:19 +0000
+
 t3code (0.0.32-1) unstable; urgency=medium
 
   * Package the upstream Linux desktop payload with native Debian tooling.

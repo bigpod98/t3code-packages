@@ -1,6 +1,6 @@
 %global debug_package %{nil}
 %global __strip /bin/true
-%{!?package_version:%global package_version 0.0.32}
+%{!?package_version:%global package_version 0.0.34}
 %{!?package_release:%global package_release 1}
 
 Name:           t3code
@@ -112,5 +112,8 @@ ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
 %{_metainfodir}/com.t3tools.t3code.metainfo.xml
 
 %changelog
+* Wed Aug 26 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.0.34-1
+- Update to upstream release 0.0.34.
+
 * Fri Aug 07 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.0.32-1
 - Initial native RPM recipe based on the upstream Linux payload.
