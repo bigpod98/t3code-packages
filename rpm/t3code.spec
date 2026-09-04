@@ -83,6 +83,16 @@ rm -f %{buildroot}%{t3code_appdir}/LICENSE.t3code
 rm -f %{buildroot}%{t3code_appdir}/LICENSE.electron.txt
 rm -f %{buildroot}%{t3code_appdir}/LICENSES.chromium.html
 rm -f %{buildroot}%{t3code_appdir}/THIRD-PARTY-LICENSES.json
+# @napi-rs/keyring and its platform package contain the same native addon.
+# Keep both Node resolution paths while storing only one copy in the RPM.
+for platform_keyring in \
+  %{buildroot}%{t3code_appdir}/resources/app.asar.unpacked/node_modules/@napi-rs/keyring-linux-*/keyring.linux-*-gnu.node; do
+  test -f "$platform_keyring" || continue
+  keyring=%{buildroot}%{t3code_appdir}/resources/app.asar.unpacked/node_modules/@napi-rs/keyring/${platform_keyring##*/}
+  test -f "$keyring" || continue
+  cmp -s "$platform_keyring" "$keyring"
+  ln -f "$platform_keyring" "$keyring"
+done
 chmod 4755 %{buildroot}%{t3code_appdir}/chrome-sandbox
 
 %check
