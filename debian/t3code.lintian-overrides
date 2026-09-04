@@ -15,6 +15,7 @@ t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpac
 # Preserve the tested upstream Electron payload byte-for-byte. Stripping these
 # prebuilt objects would mutate vendor artifacts after the upstream smoke test.
 t3code: unstripped-binary-or-object [usr/lib/t3code/libvulkan.so.1]
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/browser-secret/t3-browser-secret]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/msgpackr-extract/build/Release/extract.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/node-pty/build/Release/pty.node]
