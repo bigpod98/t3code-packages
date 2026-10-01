@@ -1,16 +1,8 @@
-# The zero-length file is an upstream architecture-package marker consumed by
-# msgpackr-extract's JavaScript loader.
-addFilter("zero-length /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-[^/]+/index[.]js$")
-
 # Electron requires its chrome-sandbox helper to be setuid on systems where
 # unprivileged user namespaces are unavailable. The package checks assert the
 # exact mode and root ownership separately.
 addFilter("setuid-binary /usr/lib/t3code/chrome-sandbox root 4755$")
 addFilter("non-standard-executable-perm /usr/lib/t3code/chrome-sandbox 4755$")
-
-# These are inert Windows support sources bundled in upstream node-pty, not
-# scripts invoked by the Linux application.
-addFilter("non-executable-script /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/node-pty/deps/winpty/.* 644 ")
 
 # CI artifacts are intentionally unsigned. Packager and Group are omitted
 # because Fedora build systems supply the former and modern RPM does not require
