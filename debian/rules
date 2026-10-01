@@ -46,6 +46,13 @@ override_dh_strip:
 
 override_dh_dwz:
 
+# ffi-rs also ships musl fallbacks, which its loader does not select on glibc.
+# Keep scanning the glibc modules and all other binaries for dependencies.
+override_dh_shlibdeps:
+	dh_shlibdeps \
+		-X/node_modules/@yuuang/ffi-rs-linux-x64-musl/ \
+		-X/node_modules/@yuuang/ffi-rs-linux-arm64-musl/
+
 override_dh_compress:
 	dh_compress -XLICENSE.electron.txt -XLICENSES.chromium.html \
 		-XTHIRD-PARTY-NOTICES.md -XTHIRD-PARTY-LICENSES.json

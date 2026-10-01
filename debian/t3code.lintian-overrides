@@ -10,6 +10,7 @@ t3code: embedded-library tiff [usr/lib/t3code/t3code]
 # Upstream ships musl fallbacks beside the glibc native modules. They are selected
 # by the JavaScript loaders and are not ELF libraries for the Debian host ABI.
 t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@ff-labs/fff-bin-linux-*-musl/libfff_c.so]
+t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@yuuang/ffi-rs-linux-*-musl/ffi-rs.linux-*-musl.node]
 t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.musl.node]
 
 # Preserve the tested upstream Electron payload byte-for-byte. Stripping these

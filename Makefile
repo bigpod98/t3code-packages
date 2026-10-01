@@ -3,18 +3,18 @@ SHELL := /bin/bash
 .DELETE_ON_ERROR:
 
 NAME := t3code
-VERSION ?= 0.0.38
+VERSION ?= 0.0.44
 RELEASE ?= 1
-PACKAGE_DATE ?= 2026-09-01
+PACKAGE_DATE ?= 2026-09-29
 NODE_VERSION ?= 24.13.1
 PNPM_VERSION ?= 11.10.0
 RUST_VERSION ?= 1.97.1
 FEDORA_IMAGE ?= fedora:43
 
 SOURCE_REPOSITORY ?= https://github.com/pingdotgg/t3code
-SOURCE_COMMIT ?= c0995d2eaf8ec787b3318ed1169ae266ed1529f8
-SOURCE_SHA256 ?= dc5df4c826d8f6dcfc7675fb8c29c6a0e59d6ad164f726cae362bab7baafa974
-SOURCE_DATE_EPOCH ?= 1788300227
+SOURCE_COMMIT ?= 451afcb22d93f06cb24f9bc16703404564952553
+SOURCE_SHA256 ?= 13967bcec996a9e41b13bb6c68e946d5f9969f5b0553414bebdc2ae2bfaf962a
+SOURCE_DATE_EPOCH ?= 1790711496
 
 BUILD_DIR := $(CURDIR)/build
 DIST_DIR := $(CURDIR)/dist
@@ -22,6 +22,7 @@ DOWNLOAD_DIR := $(BUILD_DIR)/downloads
 SOURCE_DIR := $(BUILD_DIR)/source/$(NAME)-$(SOURCE_COMMIT)
 SOURCE_ARCHIVE := $(DOWNLOAD_DIR)/$(NAME)-$(SOURCE_COMMIT).tar.gz
 SOURCE_STAMP := $(SOURCE_DIR)/.packaging-source-ready
+PACKAGING_PATCHES := $(sort $(wildcard patches/*.patch))
 
 HOST_ARCH := $(shell uname -m)
 ifeq ($(HOST_ARCH),x86_64)
@@ -97,25 +98,24 @@ verify-source: $(SOURCE_ARCHIVE) | check-config
 		sha256sum "$(SOURCE_ARCHIVE)"; \
 	fi
 
-$(SOURCE_STAMP): $(SOURCE_ARCHIVE) patches/0001-copy-directory-build-output.patch | verify-source
+$(SOURCE_STAMP): $(SOURCE_ARCHIVE) $(PACKAGING_PATCHES) | verify-source
 	test "$(BUILD_DIR)" != / && test -n "$(SOURCE_COMMIT)"
 	rm -rf "$(SOURCE_DIR)"
 	install -d "$(SOURCE_DIR)"
 	tar --extract --gzip --file "$(SOURCE_ARCHIVE)" \
 		--strip-components=1 --directory "$(SOURCE_DIR)"
-	@if patch --directory "$(SOURCE_DIR)" --strip=1 --dry-run \
-			< patches/0001-copy-directory-build-output.patch >/dev/null; then \
-		patch --directory "$(SOURCE_DIR)" --strip=1 \
-			< patches/0001-copy-directory-build-output.patch; \
-	elif grep -Fq '(stat.type !== "File" && stat.type !== "Directory")' \
-			"$(SOURCE_DIR)/scripts/build-desktop-artifact.ts" && \
-		grep -Fq 'yield* fs.copy(from, to);' \
-			"$(SOURCE_DIR)/scripts/build-desktop-artifact.ts"; then \
-		echo "Directory artifact support is already present upstream"; \
-	else \
-		echo "The directory-artifact patch no longer applies and is not upstream" >&2; \
-		exit 1; \
-	fi
+	@set -e; for patch_file in $(PACKAGING_PATCHES); do \
+		if patch --directory "$(SOURCE_DIR)" --strip=1 --batch --forward --dry-run \
+				< "$$patch_file" >/dev/null; then \
+			patch --directory "$(SOURCE_DIR)" --strip=1 --batch --forward < "$$patch_file"; \
+		elif patch --directory "$(SOURCE_DIR)" --strip=1 --batch --reverse --dry-run \
+				< "$$patch_file" >/dev/null; then \
+			echo "$$patch_file is already present upstream"; \
+		else \
+			echo "$$patch_file no longer applies and is not upstream" >&2; \
+			exit 1; \
+		fi; \
+	done
 	touch "$@"
 
 source: verify-source $(SOURCE_STAMP)
@@ -158,6 +158,9 @@ check-payload:
 	test -x "$(PAYLOAD_DIR)/t3code"
 	test -x "$(PAYLOAD_DIR)/chrome-sandbox"
 	test -f "$(PAYLOAD_DIR)/resources/app.asar"
+	test -f "$(PAYLOAD_DIR)/resources/app.asar.unpacked/node_modules/node-pty/build/Release/pty.node"
+	test ! -e "$(PAYLOAD_DIR)/resources/app.asar.unpacked/node_modules/node-pty/prebuilds/linux-x64/pty.node"
+	test ! -e "$(PAYLOAD_DIR)/resources/app.asar.unpacked/node_modules/node-pty/prebuilds/linux-arm64/pty.node"
 	test -x "$(PAYLOAD_DIR)/resources/resource-monitor/t3-resource-monitor"
 	test -f "$(PAYLOAD_DIR)/LICENSE.t3code"
 	test -f "$(PAYLOAD_DIR)/LICENSE.electron.txt"

@@ -157,14 +157,19 @@ the server JavaScript entrypoint.
 
 For a new T3 Code version:
 
-1. Update `VERSION`, `SOURCE_COMMIT`, `SOURCE_SHA256`, and
+1. Update `VERSION`, `PACKAGE_DATE`, `SOURCE_COMMIT`, `SOURCE_SHA256`, and
    `SOURCE_DATE_EPOCH` in `Makefile`.
 2. Update `debian/changelog`, the version/release in `rpm/t3code.spec`, and the
-   AppStream release in `packaging/t3code.metainfo.xml`.
+   AppStream release in `packaging/t3code.metainfo.xml`. Match the RPM's
+   `bundled(electron)` version to upstream `apps/desktop/package.json`.
 3. Rebuild with `make clean packages check` on both supported architectures.
 4. Inspect contents with `dpkg-deb --contents` and `rpm -qlp`, then install in
    clean Debian/Ubuntu and Fedora/RHEL-family test systems.
 
-The patch in `patches/` only teaches the upstream artifact builder to copy the
-directory emitted by electron-builder's `dir` target. It does not delegate DEB
-or RPM creation to electron-builder.
+The patches in `patches/` teach the upstream artifact builder to copy the
+directory emitted by electron-builder's `dir` target and exclude unused
+`node-pty` Linux prebuilds. Linux uses the module rebuilt in `build/Release`;
+shipping prebuilds for other architectures breaks native dependency scanning.
+DEB dependency scanning excludes only the private `ffi-rs` musl fallbacks,
+which are not loaded on glibc systems. RPM already excludes private musl
+fallbacks from automatic dependency generation.

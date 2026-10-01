@@ -1,6 +1,6 @@
 %global debug_package %{nil}
 %global __strip /bin/true
-%{!?package_version:%global package_version 0.0.38}
+%{!?package_version:%global package_version 0.0.44}
 %{!?package_release:%global package_release 1}
 
 Name:           t3code
@@ -45,7 +45,7 @@ Requires:       xdg-utils
 
 # T3 Code's upstream build has no supported system-library mode for its
 # Electron and npm dependency graph. Keep the bundling visible to RPM tooling.
-Provides:       bundled(electron) = 43.4.1
+Provides:       bundled(electron) = 44.4.2
 
 %description
 T3 Code controls coding agents installed on the local machine, including
@@ -122,6 +122,9 @@ ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
 %{_metainfodir}/com.t3tools.t3code.metainfo.xml
 
 %changelog
+* Tue Sep 29 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.0.44-1
+- Update to upstream release 0.0.44.
+
 * Tue Sep 01 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.0.38-1
 - Update to upstream release 0.0.38.
 

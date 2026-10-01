@@ -1,0 +1,23 @@
+From: Primoz Ajdisek <bigpod@bigpod.si>
+Subject: [PATCH] build: exclude node-pty Linux prebuilds from Linux payloads
+
+node-pty now ships Linux prebuilds for both architectures. The Linux desktop
+build rebuilds node-pty into build/Release, so these are unused. Bundling them
+makes native package dependency scanners try to resolve a foreign ABI.
+---
+ scripts/build-desktop-artifact.ts | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/scripts/build-desktop-artifact.ts b/scripts/build-desktop-artifact.ts
+--- a/scripts/build-desktop-artifact.ts
++++ b/scripts/build-desktop-artifact.ts
+@@ -972,6 +972,7 @@
+-// Linux builds node-pty from source, so every prebuild in the package is for
+-// another platform (58 MB of it Windows debug symbols).
++// Linux builds node-pty from source into build/Release. Exclude all prebuilds,
++// including Linux binaries for other architectures.
+ export const LINUX_FILE_EXCLUSIONS = [
+   ...MAC_FILE_EXCLUSIONS,
+   "!**/node_modules/node-pty/prebuilds/darwin-*/**/*",
++  "!**/node_modules/node-pty/prebuilds/linux-*/**/*",
+ ] as const;
