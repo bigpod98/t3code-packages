@@ -20,3 +20,8 @@ t3code: unstripped-binary-or-object [usr/lib/t3code/resources/browser-secret/t3-
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/msgpackr-extract/build/Release/extract.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/node_modules/node-pty/build/Release/pty.node]
+
+# Cursor SDK also vendors prebuilt tree-sitter bindings outside app.asar.
+# Preserve those tested artifacts on both supported Linux architectures.
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter/binding.node]
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter-bash/binding.node]
