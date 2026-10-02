@@ -13,7 +13,11 @@ addFilter("no-group-tag$")
 
 # node-pty is a regular native Node module, not a privileged helper. rpmlint's
 # symbol-only scan mistakes its embedded library calls for a setuid code path.
-addFilter("missing-call-to-setgroups-before-setuid /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/node-pty/build/Release/pty[.]node$")
+# Cursor SDK ships static cursorsandbox and ripgrep executables as part of its
+# tested vendor payload. Preserve these binaries on both supported architectures.
+# Keep these vendor exceptions in one filter: older stable payloads include
+# node-pty but no Cursor SDK, and rpmlint rejects unused standalone filters.
+addFilter("missing-call-to-setgroups-before-setuid /usr/lib/t3code/resources/app[.]asar[.]unpacked/node_modules/node-pty/build/Release/pty[.]node$|statically-linked-binary /usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-(x64|arm64)/bin/(cursorsandbox|rg)$")
 
 # These explicit dependencies cover Electron libraries that may be loaded at
 # runtime rather than represented by ordinary ELF DT_NEEDED entries.
