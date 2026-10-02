@@ -25,3 +25,8 @@ t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/
 # Preserve those tested artifacts on both supported Linux architectures.
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter/binding.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter-bash/binding.node]
+
+# Cursor's ARM64 payload includes static ripgrep and an unstripped sandbox
+# helper. Preserve these vendor executables just like the native bindings.
+t3code: statically-linked-binary [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-arm64/bin/rg]
+t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-arm64/bin/cursorsandbox]
