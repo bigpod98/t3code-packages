@@ -67,6 +67,9 @@ jobs:
     env:
       PACKAGE_DATE: ${{ needs.resolve.outputs.package_date }}
       NODE_VERSION: 24.13.1
+      # Leave room for native bundler allocations as well as the Node heap.
+      NODE_OPTIONS: --max-old-space-size=8192
+      T3CODE_WEB_SOURCEMAP: "false"
       PNPM_VERSION: 11.10.0
       RELEASE: ${{ github.run_number }}
       SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
@@ -115,6 +118,15 @@ jobs:
           rustc --version
           cargo --version
 
+      # Web transforms can exhaust runner RAM and kill the Actions runner itself.
+      - name: Add build swap
+        run: |
+          sudo fallocate -l 8G /mnt/t3code-build.swap
+          sudo chmod 600 /mnt/t3code-build.swap
+          sudo mkswap /mnt/t3code-build.swap
+          sudo swapon /mnt/t3code-build.swap
+          free -h
+
       - name: Build native packages
         run: make packages
 
@@ -140,6 +152,7 @@ jobs:
 
   publish:
     name: Publish packages to Forgejo
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
     needs:
       - resolve
       - build
