@@ -94,6 +94,12 @@ make packages \
 - `Latest stable packages` runs every day and on demand. It resolves the latest
   non-prerelease from `pingdotgg/t3code` and builds that exact release commit.
 
+Each architecture job adds 8 GiB of swap and limits the Node heap to 8 GiB,
+leaving headroom for native bundler allocations. Web source maps are disabled
+with upstream's `T3CODE_WEB_SOURCEMAP=false` setting to reduce build memory and
+package size. Manual runs on other branches build and validate artifacts;
+Forgejo publication runs only from the default branch.
+
 Both workflows build on native x86-64 and ARM64 Ubuntu runners. They form the
 DEB on the host and the RPM in a native Fedora container, both from the same
 per-architecture payload, retain the results as workflow artifacts, and publish
