@@ -25,7 +25,7 @@ dependency names target current Fedora and RHEL-family distributions.
 
 ## Build requirements
 
-Building the payload requires Node.js 24.13.1, pnpm 11.10.0, Rust 1.97.1 with the
+Building the payload requires Node.js 26.12.1, pnpm 12.14.0, Rust 1.97.1 with the
 matching GNU Linux target, ImageMagick, a C/C++ toolchain, and normal Electron
 native-module build prerequisites. The source commit and archive SHA-256 are
 pinned in `Makefile`.
@@ -100,6 +100,8 @@ with upstream's `T3CODE_WEB_SOURCEMAP=false` setting to reduce build memory and
 package size. Manual runs on other branches build and validate artifacts;
 Forgejo publication runs only from the default branch.
 
+Both workflows resolve the exact Node.js and pnpm versions from the selected
+upstream commit, so upstream toolchain changes do not leave CI on old pins.
 Both workflows build on native x86-64 and ARM64 Ubuntu runners. They form the
 DEB on the host and the RPM in a native Fedora container, both from the same
 per-architecture payload, retain the results as workflow artifacts, and publish
@@ -172,9 +174,9 @@ For a new T3 Code version:
 4. Inspect contents with `dpkg-deb --contents` and `rpm -qlp`, then install in
    clean Debian/Ubuntu and Fedora/RHEL-family test systems.
 
-The patches in `patches/` teach the upstream artifact builder to copy the
-directory emitted by electron-builder's `dir` target and exclude unused
-`node-pty` Linux prebuilds. Linux uses the module rebuilt in `build/Release`;
+The patch in `patches/` excludes unused `node-pty` Linux prebuilds. Upstream
+now copies directory artifacts from electron-builder's `dir` target itself.
+Linux uses the module rebuilt in `build/Release`;
 shipping prebuilds for other architectures breaks native dependency scanning.
 DEB dependency scanning excludes only the private `ffi-rs` musl fallbacks,
 which are not loaded on glibc systems. RPM already excludes private musl

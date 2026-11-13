@@ -3,18 +3,18 @@ SHELL := /bin/bash
 .DELETE_ON_ERROR:
 
 NAME := t3code
-VERSION ?= 0.0.44
+VERSION ?= 0.1.9
 RELEASE ?= 1
-PACKAGE_DATE ?= 2026-09-29
-NODE_VERSION ?= 24.13.1
-PNPM_VERSION ?= 11.10.0
+PACKAGE_DATE ?= 2026-11-11
+NODE_VERSION ?= 26.12.1
+PNPM_VERSION ?= 12.14.0
 RUST_VERSION ?= 1.97.1
 FEDORA_IMAGE ?= fedora:43
 
 SOURCE_REPOSITORY ?= https://github.com/pingdotgg/t3code
-SOURCE_COMMIT ?= 451afcb22d93f06cb24f9bc16703404564952553
-SOURCE_SHA256 ?= 13967bcec996a9e41b13bb6c68e946d5f9969f5b0553414bebdc2ae2bfaf962a
-SOURCE_DATE_EPOCH ?= 1790711496
+SOURCE_COMMIT ?= 24e77473ecf41bc1f7142529c7911c1c1aae1d76
+SOURCE_SHA256 ?= 5f54e655d61d14a3daf9efd9291802fd04f0f265476053a9aacceed4d31d049d
+SOURCE_DATE_EPOCH ?= 1794388291
 
 BUILD_DIR := $(CURDIR)/build
 DIST_DIR := $(CURDIR)/dist
@@ -129,6 +129,7 @@ $(PAYLOAD_STAMP): $(SOURCE_STAMP) Makefile
 	test "$$(pnpm --version)" = "$(PNPM_VERSION)"
 	test "$$(rustc --version | awk '{ print $$2 }')" = "$(RUST_VERSION)"
 	cd "$(SOURCE_DIR)" && pnpm install --frozen-lockfile
+	cd "$(SOURCE_DIR)" && pnpm exec vp run --filter @t3tools/desktop ensure:electron
 	test "$(BUILD_DIR)" != /
 	rm -rf "$(BUILD_DIR)/electron-output"
 	cd "$(SOURCE_DIR)" && SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \

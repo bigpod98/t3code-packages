@@ -17,6 +17,8 @@ jobs:
     name: Resolve latest stable release
     runs-on: ubuntu-24.04
     outputs:
+      node_version: ${{ steps.source.outputs.node_version }}
+      pnpm_version: ${{ steps.source.outputs.pnpm_version }}
       package_date: ${{ steps.source.outputs.package_date }}
       source_commit: ${{ steps.source.outputs.source_commit }}
       source_date_epoch: ${{ steps.source.outputs.source_date_epoch }}
@@ -49,7 +51,21 @@ jobs:
               sha256sum | cut -d " " -f 1
           )"
 
+          # Resolve toolchains from the same immutable source as the build.
+          source_package="$(curl --fail --location --silent --show-error \
+            "https://raw.githubusercontent.com/pingdotgg/t3code/$source_commit/package.json")"
+          node_version="$(jq -er '.engines.node' <<< "$source_package")"
+          package_manager="$(jq -er '.packageManager' <<< "$source_package")"
+          if [[ ! "$node_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || \
+             [[ ! "$package_manager" =~ ^pnpm@[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Upstream must declare exact Node.js and pnpm versions" >&2
+            exit 1
+          fi
+          pnpm_version="${package_manager#pnpm@}"
+
           {
+            echo "node_version=$node_version"
+            echo "pnpm_version=$pnpm_version"
             echo "package_date=$package_date"
             echo "source_commit=$source_commit"
             echo "source_date_epoch=$source_date_epoch"
@@ -72,11 +88,11 @@ jobs:
             runner: ubuntu-24.04-arm
     env:
       PACKAGE_DATE: ${{ needs.resolve.outputs.package_date }}
-      NODE_VERSION: 24.13.1
+      NODE_VERSION: ${{ needs.resolve.outputs.node_version }}
       # Leave room for native bundler allocations as well as the Node heap.
       NODE_OPTIONS: --max-old-space-size=8192
       T3CODE_WEB_SOURCEMAP: "false"
-      PNPM_VERSION: 11.10.0
+      PNPM_VERSION: ${{ needs.resolve.outputs.pnpm_version }}
       RELEASE: ${{ github.run_number }}
       SOURCE_COMMIT: ${{ needs.resolve.outputs.source_commit }}
       SOURCE_DATE_EPOCH: ${{ needs.resolve.outputs.source_date_epoch }}
