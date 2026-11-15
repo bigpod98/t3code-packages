@@ -89,8 +89,10 @@ jobs:
     env:
       PACKAGE_DATE: ${{ needs.resolve.outputs.package_date }}
       NODE_VERSION: ${{ needs.resolve.outputs.node_version }}
-      # Leave room for native bundler allocations as well as the Node heap.
-      NODE_OPTIONS: --max-old-space-size=8192
+      # Bound both JavaScript and native transform memory on 16 GiB runners.
+      NODE_OPTIONS: --max-old-space-size=4096
+      RAYON_NUM_THREADS: "2"
+      MALLOC_ARENA_MAX: "2"
       T3CODE_WEB_SOURCEMAP: "false"
       PNPM_VERSION: ${{ needs.resolve.outputs.pnpm_version }}
       RELEASE: ${{ github.run_number }}
@@ -143,7 +145,7 @@ jobs:
       # Web transforms can exhaust runner RAM and kill the Actions runner itself.
       - name: Add build swap
         run: |
-          sudo fallocate -l 8G /mnt/t3code-build.swap
+          sudo fallocate -l 16G /mnt/t3code-build.swap
           sudo chmod 600 /mnt/t3code-build.swap
           sudo mkswap /mnt/t3code-build.swap
           sudo swapon /mnt/t3code-build.swap

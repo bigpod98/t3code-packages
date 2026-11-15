@@ -94,8 +94,9 @@ make packages \
 - `Latest stable packages` runs every day and on demand. It resolves the latest
   non-prerelease from `pingdotgg/t3code` and builds that exact release commit.
 
-Each architecture job adds 8 GiB of swap and limits the Node heap to 8 GiB,
-leaving headroom for native bundler allocations. Web source maps are disabled
+Each architecture job adds 16 GiB of swap, limits the Node heap to 4 GiB,
+and limits native Rayon transforms to two threads with two glibc allocator
+arenas, leaving headroom for native bundler allocations and the Actions runner. Web source maps are disabled
 with upstream's `T3CODE_WEB_SOURCEMAP=false` setting to reduce build memory and
 package size. Manual runs on other branches build and validate artifacts;
 Forgejo publication runs only from the default branch.
