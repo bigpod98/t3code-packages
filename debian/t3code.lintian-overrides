@@ -12,6 +12,7 @@ t3code: embedded-library tiff [usr/lib/t3code/t3code]
 t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@ff-labs/fff-bin-linux-*-musl/libfff_c.so]
 t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@yuuang/ffi-rs-linux-*-musl/ffi-rs.linux-*-musl.node]
 t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@msgpackr-extract/msgpackr-extract-linux-*/node.*.musl.node]
+t3code: library-not-linked-against-libc [usr/lib/t3code/resources/app.asar.unpacked/node_modules/@koromix/koffi-linux-*/musl_*/koffi.node]
 
 # Preserve the tested upstream Electron payload byte-for-byte. Stripping these
 # prebuilt objects would mutate vendor artifacts after the upstream smoke test.
@@ -26,7 +27,8 @@ t3code: unstripped-binary-or-object [usr/lib/t3code/resources/app.asar.unpacked/
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter/binding.node]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-*/vendor/tree-sitter-bash/binding.node]
 
-# Cursor's ARM64 payload includes static ripgrep and an unstripped sandbox
-# helper. Preserve these vendor executables just like the native bindings.
+# Cursor's x64 sandbox and ARM64 ripgrep are statically linked; the ARM64
+# sandbox is unstripped. Preserve these tested vendor executables.
+t3code: statically-linked-binary [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-x64/bin/cursorsandbox]
 t3code: statically-linked-binary [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-arm64/bin/rg]
 t3code: unstripped-binary-or-object [usr/lib/t3code/resources/node_modules/@cursor/sdk-linux-arm64/bin/cursorsandbox]
