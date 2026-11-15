@@ -61,6 +61,11 @@ tar --extract --gzip --file %{SOURCE0}
 %install
 install -d %{buildroot}%{t3code_appdir}
 cp -a . %{buildroot}%{t3code_appdir}/
+# Node creates compile-cache files with mode 0600. The packaged cache is owned
+# by root and must also be readable by the users running the bundled server.
+if test -d %{buildroot}%{t3code_appdir}/resources/server-compile-cache; then
+  chmod -R a+rX %{buildroot}%{t3code_appdir}/resources/server-compile-cache
+fi
 install -D -m 0755 %{SOURCE1} %{buildroot}%{_bindir}/t3code
 install -D -m 0755 %{SOURCE2} %{buildroot}%{_bindir}/t3
 desktop-file-install --dir=%{buildroot}%{_datadir}/applications %{SOURCE3}
