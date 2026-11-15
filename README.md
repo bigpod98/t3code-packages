@@ -95,8 +95,9 @@ make packages \
   non-prerelease from `pingdotgg/t3code` and builds that exact release commit.
 
 Each architecture job adds 16 GiB of swap, limits the Node heap to 4 GiB,
-and limits native Rayon transforms to two threads with two glibc allocator
-arenas, leaving headroom for native bundler allocations and the Actions runner. Web source maps are disabled
+and limits native Rayon transforms to one thread with two glibc allocator
+arenas, leaving headroom for native bundler allocations and the Actions runner.
+Web source maps are disabled
 with upstream's `T3CODE_WEB_SOURCEMAP=false` setting to reduce build memory and
 package size. Manual runs on other branches build and validate artifacts;
 Forgejo publication runs only from the default branch.
@@ -179,6 +180,6 @@ The patch in `patches/` excludes unused `node-pty` Linux prebuilds. Upstream
 now copies directory artifacts from electron-builder's `dir` target itself.
 Linux uses the module rebuilt in `build/Release`;
 shipping prebuilds for other architectures breaks native dependency scanning.
-DEB dependency scanning excludes only the private `ffi-rs` musl fallbacks,
-which are not loaded on glibc systems. RPM already excludes private musl
+DEB dependency scanning excludes only the private `ffi-rs`, `fff`, and `koffi`
+musl fallbacks, which are not loaded on glibc systems. RPM already excludes private musl
 fallbacks from automatic dependency generation.

@@ -91,7 +91,7 @@ jobs:
       NODE_VERSION: ${{ needs.resolve.outputs.node_version }}
       # Bound both JavaScript and native transform memory on 16 GiB runners.
       NODE_OPTIONS: --max-old-space-size=4096
-      RAYON_NUM_THREADS: "2"
+      RAYON_NUM_THREADS: "1"
       MALLOC_ARENA_MAX: "2"
       T3CODE_WEB_SOURCEMAP: "false"
       PNPM_VERSION: ${{ needs.resolve.outputs.pnpm_version }}
@@ -152,7 +152,11 @@ jobs:
           free -h
 
       - name: Build native packages
-        run: make packages
+        run: |
+          vmstat -w 30 &
+          monitor_pid=$!
+          trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
+          /usr/bin/time -v make packages
 
       - name: Validate packages
         run: make check REQUIRE_PACKAGES=1
