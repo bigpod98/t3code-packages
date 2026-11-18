@@ -1,10 +1,11 @@
-#!/bin/sh
-set -eu
+#!/bin/bash
+set -euo pipefail
 
 dist_dir=${1:-dist}
 require_packages=${2:-0}
 deb_count=0
 rpm_count=0
+arch_count=0
 
 fail() {
   echo "Package check failed: $*" >&2
@@ -15,7 +16,7 @@ check_path() {
   manifest=$1
   path=$2
   package=$3
-  if ! printf '%s\n' "$manifest" | grep -Fqx "$path"; then
+  if ! grep -Fqx -- "$path" <<< "$manifest"; then
     fail "$package does not contain $path"
   fi
 }
@@ -24,7 +25,7 @@ check_absent_path() {
   manifest=$1
   path=$2
   package=$3
-  if printf '%s\n' "$manifest" | grep -Fqx "$path"; then
+  if grep -Fqx -- "$path" <<< "$manifest"; then
     fail "$package unexpectedly contains $path"
   fi
 }
@@ -93,7 +94,28 @@ for package in "$dist_dir"/*.rpm; do
   test -n "$depends" || fail "$package has no runtime dependencies"
 done
 
+for package in "$dist_dir"/*.pkg.tar.zst; do
+  test -e "$package" || continue
+  arch_count=$((arch_count + 1))
+  echo "Checking Arch Linux package: $package"
+  metadata=$(tar -xOf "$package" .PKGINFO)
+  grep -Fxq 'pkgname = t3code' <<< "$metadata" || fail "$package has incorrect package name"
+  grep -Fxq 'arch = x86_64' <<< "$metadata" || fail "$package has incorrect architecture"
+  manifest=$(tar -tf "$package")
+  for path in usr/bin/t3 usr/bin/t3code usr/lib/t3code/resources/app.asar \
+    usr/share/applications/t3code.desktop usr/share/metainfo/com.t3tools.t3code.metainfo.xml \
+    usr/share/icons/hicolor/1024x1024/apps/t3code.png \
+    usr/share/licenses/t3code/{LICENSE,LICENSE.electron.txt,LICENSES.chromium.html,THIRD-PARTY-LICENSES.json,THIRD-PARTY-NOTICES.md}; do
+    check_path "$manifest" "$path" "$package"
+  done
+  sandbox_metadata=$(tar --numeric-owner -tvf "$package" usr/lib/t3code/chrome-sandbox | awk '{print $1, $2}')
+  test "$sandbox_metadata" = "-rwsr-xr-x 0/0" || fail "$package has incorrect chrome-sandbox mode or owner"
+done
+
 if test "$require_packages" = 1; then
+  if test "$(uname -m)" = x86_64; then
+    test "$arch_count" -eq 1 || fail "expected exactly one Arch Linux package in $dist_dir, found $arch_count"
+  fi
   test "$deb_count" -eq 1 ||
     fail "expected exactly one DEB in $dist_dir, found $deb_count"
   test "$rpm_count" -eq 1 ||

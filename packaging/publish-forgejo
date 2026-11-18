@@ -33,6 +33,7 @@ upload_package() {
       --retry 3 \
       --retry-all-errors \
       --header "Authorization: token $FORGEJO_TOKEN" \
+      --header "Content-Type: application/octet-stream" \
       --upload-file "$package" \
       --output "$response_file" \
       --write-out '%{http_code}' \
@@ -58,6 +59,13 @@ upload_package() {
 deb_count=$(find "$dist_dir" -maxdepth 1 -type f -name '*.deb' | wc -l)
 rpm_count=$(find "$dist_dir" -maxdepth 1 -type f -name '*.rpm' | wc -l)
 
+set -- "$dist_dir"/*-x86_64.pkg.tar.zst
+if test "$#" -ne 1 || ! test -f "$1"; then
+  echo "Expected one x86_64 Arch Linux package in $dist_dir" >&2
+  exit 1
+fi
+arch_package=$1
+
 if test "$deb_count" -ne 2 || test "$rpm_count" -ne 2; then
   echo "Expected two DEBs and two RPMs, found $deb_count DEBs and $rpm_count RPMs" >&2
   exit 1
@@ -72,3 +80,5 @@ for package in "$dist_dir"/*.rpm; do
   upload_package "$package" \
     "$forgejo_url/api/packages/$owner/rpm/upload?sign=true"
 done
+
+upload_package "$arch_package" "$forgejo_url/api/packages/$owner/arch/$distribution"

@@ -3,7 +3,7 @@ set -eu
 
 dist_dir=${1:-dist}
 dist_dir=$(cd "$dist_dir" && pwd)
-fedora_image=${FEDORA_IMAGE:-fedora:43}
+fedora_image=${FEDORA_IMAGE:-fedora:45}
 
 command -v docker >/dev/null
 test "$(find "$dist_dir" -maxdepth 1 -type f -name '*.deb' | wc -l)" -eq 1
@@ -17,9 +17,28 @@ docker run --rm --volume "$dist_dir:/packages:ro" debian:13-slim sh -euxc '
   timeout 30 t3 --help >/dev/null
 '
 
-docker run --rm --volume "$dist_dir:/packages:ro" "$fedora_image" sh -euxc '
-  dnf install --assumeyes /packages/*.rpm
-  test "$(stat -c %a /usr/lib/t3code/chrome-sandbox)" = 4755
-  ELECTRON_RUN_AS_NODE=1 t3code --version
-  timeout 30 t3 --help >/dev/null
-'
+test_rpm() {
+  docker run --rm --volume "$dist_dir:/packages:ro" "$1" sh -euxc '
+    dnf install --assumeyes /packages/*.rpm
+    test "$(stat -c %a /usr/lib/t3code/chrome-sandbox)" = 4755
+    ELECTRON_RUN_AS_NODE=1 t3code --version
+    timeout 30 t3 --help >/dev/null
+  '
+}
+
+test_rpm "$fedora_image"
+if test "$fedora_image" != fedora:44; then
+  test_rpm fedora:44
+fi
+
+if test "$(uname -m)" = x86_64; then
+  set -- "$dist_dir"/*.pkg.tar.zst
+  test "$#" -eq 1 && test -f "$1" || exit 1
+  docker run --rm --volume "$dist_dir:/packages:ro" archlinux:base sh -euxc '
+    pacman -Syu --noconfirm
+    pacman -U --noconfirm /packages/*.pkg.tar.zst
+    test "$(stat -c %u:%g:%a /usr/lib/t3code/chrome-sandbox)" = 0:0:4755
+    ELECTRON_RUN_AS_NODE=1 t3code --version
+    timeout 30 t3 --help >/dev/null
+  '
+fi

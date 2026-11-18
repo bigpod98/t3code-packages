@@ -3,7 +3,7 @@ set -eu
 
 repo_dir=${1:-.}
 repo_dir=$(cd "$repo_dir" && pwd)
-fedora_image=${FEDORA_IMAGE:-fedora:43}
+fedora_image=${FEDORA_IMAGE:-fedora:45}
 host_uid=$(id -u)
 host_gid=$(id -g)
 

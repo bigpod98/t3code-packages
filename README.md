@@ -1,31 +1,31 @@
-#if anyone wants the packages my packaged versions are avaialble at https://git.tuxbase.com/t3code-stable/-/packages and https://git.tuxbase.com/t3code-daily/-/packages i have setup repos for both deb and rpm
+# T3 Code packages for Debian, Fedora, and Arch Linux
 
+The daily and stable workflows publish unofficial Linux packages to the
+[stable registry](https://git.tuxbase.com/t3code-stable/-/packages) and the
+[daily registry](https://git.tuxbase.com/t3code-daily/-/packages).
 
-# T3 Code native DEB and RPM packaging
-
-This repository provides unofficial Linux packages for T3 Code. It builds from
-the canonical `pingdotgg/t3code` repository and forms packages with the
-distribution tools themselves:
+The recipes build from the canonical `pingdotgg/t3code` repository using
+each distribution’s native packaging tools.
 
 - Debian/Ubuntu: `dpkg-buildpackage` plus a small, explicit `debhelper` ruleset.
-- Fedora/RHEL-family: `rpmbuild` plus a conventional spec file.
+- Fedora RPMs use `rpmbuild`.
+- Arch Linux packages use `makepkg` and a PKGBUILD.
 
-The Electron application is built once as an unpacked payload. Both package
-formats consume that exact payload, so building DEB and RPM does not compile
-the application twice. Neither package is created by electron-builder, fpm,
-npm packaging wrappers, or a package-conversion tool.
+Each runner builds the Electron payload once and shares it across its package formats.
 
 ## Supported targets
 
-- x86-64: Debian `amd64`, RPM `x86_64`, Electron `x64`
-- ARM64: Debian/RPM `arm64`/`aarch64`, Electron `arm64`
+| CPU | Packages | Installation tests |
+| --- | --- | --- |
+| x86-64 | DEB, RPM, Arch (`.pkg.tar.zst`) | Debian 13, Fedora 44 and 45, Arch Linux |
+| ARM64 | DEB, RPM | Debian 13, Fedora 44 and 45 |
 
-The DEB dependency names target Debian 13 and Ubuntu 24.04 or newer. The RPM
-dependency names target current Fedora and RHEL-family distributions.
+The DEB targets Debian 13 and Ubuntu 24.04 or newer. Fedora 45 is the RPM
+build environment.
 
 ## Build requirements
 
-Building the payload requires Node.js 26.12.1, pnpm 12.14.0, Rust 1.97.1 with the
+Building the payload requires Node.js 26.13.1, pnpm 12.14.0, Rust 1.100.0 with the
 matching GNU Linux target, ImageMagick, a C/C++ toolchain, and normal Electron
 native-module build prerequisites. The source commit and archive SHA-256 are
 pinned in `Makefile`.
@@ -34,11 +34,14 @@ Package formation additionally requires:
 
 - DEB: `dpkg-dev`, `debhelper`, and `fakeroot`
 - RPM: Docker; `make rpm` installs `rpm-build`, `desktop-file-utils`, and
-  `libappstream-glib` in the pinned Fedora container
+  `libappstream-glib` in the Fedora 45 container
+- Arch Linux (x86-64) uses Docker and the official `archlinux:base-devel` image.
+  The recipe packages the local payload and installs both launchers.
 
-Full package validation additionally uses `lintian`, `rpmlint`, and Docker.
-The Docker checks install and smoke-test the packages in Debian 13 and Fedora
-43 containers on the native build architecture.
+Full package validation also uses `lintian`, `rpmlint`, GNU tar with `zstd`,
+and Docker.
+The Docker checks install each package on the distributions listed above and
+exercise the bundled runtime and headless launcher.
 
 The source build downloads the dependency graph locked by `pnpm-lock.yaml`.
 That is appropriate for vendor packages and CI, but it is not acceptable for
@@ -60,15 +63,17 @@ Outputs are written to `dist/`. To build one format only:
 ```sh
 make deb
 make rpm
+make arch   # x86-64
 ```
 
 `make packages` reuses the same input-keyed `build/payload/<arch>/` directory
-for both formats. Changing the source, version, timestamp, or toolchain selects
+for all supported formats. Changing the source, version, timestamp, or toolchain selects
 a fresh payload rather than silently reusing incompatible output. Changes to
 the Makefile also invalidate an existing payload stamp so recipe edits cannot
 silently reuse old output. The Makefile is orchestration only; the actual
 native recipes are
-[`debian/rules`](debian/rules) and [`rpm/t3code.spec`](rpm/t3code.spec).
+[`debian/rules`](debian/rules), [`rpm/t3code.spec`](rpm/t3code.spec), and
+[`arch/PKGBUILD`](arch/PKGBUILD).
 
 The version and source settings can be overridden through the environment or
 on the `make` command line. Dynamic builds must supply a full commit SHA. An
@@ -94,7 +99,7 @@ make packages \
 - `Latest stable packages` runs every day and on demand. It resolves the latest
   non-prerelease from `pingdotgg/t3code` and builds that exact release commit.
 
-Each architecture job adds 16 GiB of swap, limits the Node heap to 4 GiB,
+Each architecture job adds 32 GiB of swap, limits the Node heap to 4 GiB,
 and limits native Rayon transforms to one thread with two glibc allocator
 arenas, leaving headroom for native bundler allocations and the Actions runner.
 Web source maps are disabled
@@ -104,15 +109,17 @@ Forgejo publication runs only from the default branch.
 
 Both workflows resolve the exact Node.js and pnpm versions from the selected
 upstream commit, so upstream toolchain changes do not leave CI on old pins.
-Both workflows build on native x86-64 and ARM64 Ubuntu runners. They form the
-DEB on the host and the RPM in a native Fedora container, both from the same
-per-architecture payload, retain the results as workflow artifacts, and publish
-the validated packages to `git.tuxbase.com`. Daily packages belong to the
+Native Ubuntu 24.04 runners build both CPU architectures to preserve the glibc
+baseline. The DEB is formed on the host. Fedora and Arch packages are formed
+in native containers. Ubuntu 26.04 runs the resolution and publication jobs.
+The workflows retain the results as artifacts and publish the validated packages
+to `git.tuxbase.com`. Daily packages belong to the
 `t3code-daily` organization; stable packages belong to `t3code-stable`. Every
 workflow run is a distinct package release, even when the upstream stable
 version has not changed. The workflows lint the packages, install them in
-Debian and Fedora containers, smoke-test both launchers, and publish a
-`SHA256SUMS` file. They do not publish or replace GitHub releases.
+target distro containers, smoke-test both launchers, and include a
+`SHA256SUMS-<arch>` file in each artifact. The publish job verifies both
+manifests before uploading to Forgejo.
 
 Forgejo publication requires a GitHub Actions secret named `FORGEJO_TOKEN`.
 Its Forgejo user must have package write access to both organizations, and the
@@ -129,8 +136,7 @@ signs Debian repository metadata itself, so DEB uploads do not request package
 signing; APT clients trust the owner key from the registry's `repository.key`
 endpoint.
 
-The stable repositories are available at these endpoints once the
-`t3code-stable` organization exists and its package registry is public:
+Package managers can use the following stable repository endpoints.
 
 ```text
 APT: https://git.tuxbase.com/api/packages/t3code-stable/debian stable main
@@ -139,6 +145,19 @@ RPM: https://git.tuxbase.com/api/packages/t3code-stable/rpm.repo
 
 The daily equivalents use owner `t3code-daily`, APT distribution `daily`, and
 `https://git.tuxbase.com/api/packages/t3code-daily/rpm.repo`.
+
+Arch packages use the Forgejo group matching the channel. Add the following
+entry to `/etc/pacman.conf` for stable builds.
+
+```ini
+[t3code-stable.stable.git.tuxbase.com]
+SigLevel = Required
+Server = https://git.tuxbase.com/api/packages/t3code-stable/arch/stable/$arch
+```
+
+For daily builds, replace `stable` with `daily` in the entry. Import and trust the package owner's key from
+`https://git.tuxbase.com/api/packages/<owner>/arch/repository.key` using the
+instructions on the package's Forgejo page, then run `pacman -Syu t3code`.
 
 ## Installed layout
 
@@ -169,14 +188,15 @@ For a new T3 Code version:
 
 1. Update `VERSION`, `PACKAGE_DATE`, `SOURCE_COMMIT`, `SOURCE_SHA256`, and
    `SOURCE_DATE_EPOCH` in `Makefile`.
-2. Update `debian/changelog`, the version/release in `rpm/t3code.spec`, and the
-   AppStream release in `packaging/t3code.metainfo.xml`. Match the RPM's
-   `bundled(electron)` version to upstream `apps/desktop/package.json`.
+2. Update `debian/changelog`, the defaults in `rpm/t3code.spec` and `arch/PKGBUILD`, and the
+   AppStream release in `packaging/t3code.metainfo.xml`. Update the spec's fallback
+   Electron version for standalone builds. The Makefile reads the version directly from the staged runtime.
 3. Rebuild with `make clean packages check` on both supported architectures.
-4. Inspect contents with `dpkg-deb --contents` and `rpm -qlp`, then install in
-   clean Debian/Ubuntu and Fedora/RHEL-family test systems.
+4. Inspect contents with `dpkg-deb --contents`, `rpm -qlp`, and `tar -tf`.
+   Run `make install-test` for the supported target distributions.
 
-The patch in `patches/` excludes unused `node-pty` Linux prebuilds. Upstream
+The packaging patches disable the memory-intensive React Compiler optimization
+and exclude unused `node-pty` Linux prebuilds. Upstream
 now copies directory artifacts from electron-builder's `dir` target itself.
 Linux uses the module rebuilt in `build/Release`;
 shipping prebuilds for other architectures breaks native dependency scanning.
