@@ -156,7 +156,12 @@ jobs:
           vmstat -w 30 &
           monitor_pid=$!
           trap 'kill "$monitor_pid" 2>/dev/null || true' EXIT
-          /usr/bin/time -v make packages
+          # Keep the runner and OS outside the build's memory budget. Heap
+          # limits alone do not cover native bundler allocations or child jobs.
+          sudo --preserve-env systemd-run --scope \
+            --property=MemoryMax=10G --property=MemorySwapMax=12G \
+            runuser --user "$(id -un)" --preserve-environment -- \
+            /usr/bin/time -v make packages
 
       - name: Validate packages
         run: make check REQUIRE_PACKAGES=1
