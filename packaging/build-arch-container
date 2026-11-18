@@ -1,0 +1,25 @@
+#!/bin/sh
+set -eu
+
+payload_dir=$1
+dist_dir=$2
+install -d "$dist_dir"
+
+docker run --rm \
+  --volume "$PWD/arch/PKGBUILD:/inputs/PKGBUILD:ro" \
+  --volume "$PWD/packaging:/inputs/packaging:ro" \
+  --volume "$payload_dir:/inputs/payload:ro" \
+  --volume "$dist_dir:/out" \
+  --env VERSION --env RELEASE --env PACKAGE_DATE --env SOURCE_DATE_EPOCH \
+  --env HOST_UID="$(id -u)" --env HOST_GID="$(id -g)" \
+  archlinux:base-devel sh -euc '
+    install -d -o nobody /tmp/build
+    cd /tmp/build
+    cp /inputs/PKGBUILD .
+    ln -s /inputs/packaging .
+    # Node can leave owner-only compile-cache files in the host payload.
+    cp -a /inputs/payload .
+    chown -R nobody payload
+    runuser -u nobody -- env HOME=/tmp/build PACKAGER="Primoz Ajdisek <bigpod@bigpod.si>" makepkg --nodeps
+    setpriv --reuid="$HOST_UID" --regid="$HOST_GID" --clear-groups cp -- *.pkg.tar.zst /out/
+  '

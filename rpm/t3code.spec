@@ -1,7 +1,8 @@
 %global debug_package %{nil}
 %global __strip /bin/true
-%{!?package_version:%global package_version 0.1.9}
+%{!?package_version:%global package_version 0.1.10}
 %{!?package_release:%global package_release 1}
+%{!?bundled_electron_version:%global bundled_electron_version 44.10.1}
 
 Name:           t3code
 Version:        %{package_version}
@@ -45,7 +46,7 @@ Requires:       xdg-utils
 
 # T3 Code's upstream build has no supported system-library mode for its
 # Electron and npm dependency graph. Keep the bundling visible to RPM tooling.
-Provides:       bundled(electron) = 44.10.1
+Provides:       bundled(electron) = %{bundled_electron_version}
 
 %description
 T3 Code controls coding agents installed on the local machine, including
@@ -108,6 +109,7 @@ test -x %{buildroot}%{t3code_appdir}/t3code
 test -f %{buildroot}%{t3code_appdir}/resources/app.asar
 test -x %{buildroot}%{t3code_appdir}/resources/resource-monitor/t3-resource-monitor
 test -u %{buildroot}%{t3code_appdir}/chrome-sandbox
+test "$(ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -p process.versions.electron)" = "%{bundled_electron_version}"
 ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
   'const fs = require("node:fs"); const entry = process.argv[1]; if (!fs.statSync(entry).isFile()) process.exit(1);' \
   %{buildroot}%{t3code_appdir}/resources/app.asar/apps/server/dist/bin.mjs
@@ -127,6 +129,9 @@ ELECTRON_RUN_AS_NODE=1 %{buildroot}%{t3code_appdir}/t3code -e \
 %{_metainfodir}/com.t3tools.t3code.metainfo.xml
 
 %changelog
+* Wed Nov 18 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.1.10-1
+- Update to upstream release 0.1.10 and build on Fedora 45.
+
 * Fri Nov 13 2026 Primoz Ajdisek <bigpod@bigpod.si> - 0.1.9-1
 - Update to upstream release 0.1.9 and refresh build compatibility.
 

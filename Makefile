@@ -3,18 +3,18 @@ SHELL := /bin/bash
 .DELETE_ON_ERROR:
 
 NAME := t3code
-VERSION ?= 0.1.9
+VERSION ?= 0.1.10
 RELEASE ?= 1
-PACKAGE_DATE ?= 2026-11-11
-NODE_VERSION ?= 26.12.1
+PACKAGE_DATE ?= 2026-11-16
+NODE_VERSION ?= 26.13.1
 PNPM_VERSION ?= 12.14.0
-RUST_VERSION ?= 1.97.1
-FEDORA_IMAGE ?= fedora:43
+RUST_VERSION ?= 1.100.0
+FEDORA_IMAGE ?= fedora:45
 
 SOURCE_REPOSITORY ?= https://github.com/pingdotgg/t3code
-SOURCE_COMMIT ?= 24e77473ecf41bc1f7142529c7911c1c1aae1d76
-SOURCE_SHA256 ?= 5f54e655d61d14a3daf9efd9291802fd04f0f265476053a9aacceed4d31d049d
-SOURCE_DATE_EPOCH ?= 1794388291
+SOURCE_COMMIT ?= 7d32075e3757ded707914e2450c3e392a9665765
+SOURCE_SHA256 ?= 4e4f3a6ae8e08d10d85133ae60e4b136503fbb838cdb7ec2535a2aa4b50f4adc
+SOURCE_DATE_EPOCH ?= 1794860015
 
 BUILD_DIR := $(CURDIR)/build
 DIST_DIR := $(CURDIR)/dist
@@ -40,7 +40,7 @@ else
 endif
 
 TOOLCHAIN_KEY := node$(NODE_VERSION)-pnpm$(PNPM_VERSION)-rust$(RUST_VERSION)
-BUILD_KEY := $(VERSION)-$(RELEASE)-$(PACKAGE_DATE)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)
+BUILD_KEY := $(VERSION)-$(RELEASE)-$(PACKAGE_DATE)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)-$(TOOLCHAIN_KEY)
 PAYLOAD_KEY := $(VERSION)-$(SOURCE_DATE_EPOCH)-$(SOURCE_COMMIT)-$(TOOLCHAIN_KEY)
 PAYLOAD_DIR := $(BUILD_DIR)/payload/$(RPM_ARCH)/$(PAYLOAD_KEY)
 PAYLOAD_STAMP := $(BUILD_DIR)/payload-stamps/$(RPM_ARCH)/$(PAYLOAD_KEY)/.payload-ready
@@ -50,7 +50,7 @@ DEB_STAGE_STAMP := $(DEB_SOURCE_DIR)/.packaging-stage-ready
 RPM_TOPDIR := $(BUILD_DIR)/rpm/$(RPM_ARCH)/$(BUILD_KEY)
 RPM_PAYLOAD := $(RPM_TOPDIR)/SOURCES/$(NAME)-payload-$(VERSION)-$(RPM_ARCH).tar.gz
 
-.PHONY: help source verify-source payload check-payload deb rpm rpm-native packages check \
+.PHONY: help source verify-source payload check-payload deb rpm rpm-native arch packages check \
 	check-config check-recipes check-packages install-test clean
 
 help:
@@ -59,9 +59,10 @@ help:
 	@echo "  make payload       build one unpacked Electron payload from pinned upstream"
 	@echo "  make deb           build a DEB with dpkg-buildpackage"
 	@echo "  make rpm           build an RPM in a Fedora container"
-	@echo "  make packages      build both packages from the same payload"
+	@echo "  make arch          build an Arch Linux package on x86-64"
+	@echo "  make packages      build all supported packages from the same payload"
 	@echo "  make check         validate recipes and any existing payload/packages"
-	@echo "  make install-test  install packages in Debian and Fedora containers"
+	@echo "  make install-test  install packages in target distro containers"
 	@echo "  make clean         remove only ./build and ./dist"
 
 check-config:
@@ -98,7 +99,7 @@ verify-source: $(SOURCE_ARCHIVE) | check-config
 		sha256sum "$(SOURCE_ARCHIVE)"; \
 	fi
 
-$(SOURCE_STAMP): $(SOURCE_ARCHIVE) $(PACKAGING_PATCHES) | verify-source
+$(SOURCE_STAMP): $(SOURCE_ARCHIVE) $(wildcard patches) $(PACKAGING_PATCHES) | verify-source
 	test "$(BUILD_DIR)" != / && test -n "$(SOURCE_COMMIT)"
 	rm -rf "$(SOURCE_DIR)"
 	install -d "$(SOURCE_DIR)"
@@ -150,8 +151,8 @@ $(PAYLOAD_STAMP): $(SOURCE_STAMP) Makefile
 		--filter @t3tools/desktop --filter t3 \
 		> "$(PAYLOAD_DIR)/THIRD-PARTY-LICENSES.json"
 	install -d "$(dir $(PAYLOAD_STAMP))"
-	touch "$@"
 	$(MAKE) check-payload
+	touch "$@"
 
 payload: $(PAYLOAD_STAMP)
 
@@ -172,7 +173,8 @@ check-payload:
 	ELECTRON_RUN_AS_NODE=1 "$(PAYLOAD_DIR)/t3code" -e \
 		'const fs = require("node:fs"); const entry = process.argv[1]; if (!fs.statSync(entry).isFile()) throw new Error(`Missing server entry: $${entry}`);' \
 		"$(PAYLOAD_DIR)/resources/app.asar/apps/server/dist/bin.mjs"
-	sh -n packaging/t3 packaging/t3code
+	sh -n packaging/t3
+	sh -n packaging/t3code
 
 $(DEB_STAGE_STAMP): $(PAYLOAD_STAMP) $(shell find debian packaging -type f | sort) | check-config
 	test "$(BUILD_DIR)" != /
@@ -216,7 +218,9 @@ rpm-native: $(RPM_PAYLOAD)
 	command -v desktop-file-install >/dev/null
 	command -v desktop-file-validate >/dev/null
 	command -v appstream-util >/dev/null
-	rpmbuild --define "_topdir $(RPM_TOPDIR)" \
+	electron_version=$$(ELECTRON_RUN_AS_NODE=1 "$(PAYLOAD_DIR)/t3code" -p process.versions.electron) && \
+	rpmbuild --define "bundled_electron_version $$electron_version" \
+		--define "_topdir $(RPM_TOPDIR)" \
 		--define "_source_date_epoch $(SOURCE_DATE_EPOCH)" \
 		--define "package_version $(VERSION)" \
 		--define "package_release $(RELEASE)" \
@@ -234,19 +238,32 @@ rpm: $(RPM_PAYLOAD) packaging/build-rpm-container
 		sh packaging/build-rpm-container "$(CURDIR)"
 
 packages: deb rpm
+ifeq ($(HOST_ARCH),x86_64)
+packages: arch
+
+arch: $(PAYLOAD_STAMP)
+	VERSION="$(VERSION)" RELEASE="$(RELEASE)" PACKAGE_DATE="$(PACKAGE_DATE)" \
+		SOURCE_DATE_EPOCH="$(SOURCE_DATE_EPOCH)" \
+		sh packaging/build-arch-container "$(PAYLOAD_DIR)" "$(DIST_DIR)"
+else
+arch:
+	@echo "Arch Linux packaging requires an x86_64 host" >&2; exit 1
+endif
 
 check-recipes:
 	dpkg-parsechangelog -ldebian/changelog >/dev/null
 	rpmspec --parse rpm/t3code.spec >/dev/null
-	sh -n packaging/build-rpm-container packaging/check-packages \
-		packaging/install-test packaging/publish-forgejo packaging/t3 packaging/t3code
+	bash -n arch/PKGBUILD
+	bash -n packaging/check-packages
+	for script in packaging/build-arch-container packaging/build-rpm-container packaging/install-test \
+		packaging/publish-forgejo packaging/t3 packaging/t3code; do sh -n "$$script" || exit 1; done
 	grep -Fq 'Exec=t3code %U' packaging/t3code.desktop
 	grep -Fq 'x-scheme-handler/t3code;' packaging/t3code.desktop
 	grep -Fq '<launchable type="desktop-id">t3code.desktop</launchable>' packaging/t3code.metainfo.xml
 	test -s packaging/THIRD-PARTY-NOTICES.md
 
 check-packages:
-	sh packaging/check-packages "$(DIST_DIR)" "$(REQUIRE_PACKAGES)"
+	bash packaging/check-packages "$(DIST_DIR)" "$(REQUIRE_PACKAGES)"
 
 install-test:
 	FEDORA_IMAGE="$(FEDORA_IMAGE)" sh packaging/install-test "$(DIST_DIR)"
@@ -260,18 +277,18 @@ check: check-config check-recipes check-packages
 		appstreamcli validate --no-net packaging/t3code.metainfo.xml; \
 	fi
 	@if test "$(REQUIRE_PACKAGES)" = 1; then \
-		command -v lintian >/dev/null; \
+		command -v lintian >/dev/null && \
 		command -v rpmlint >/dev/null; \
 	fi
 	@if command -v lintian >/dev/null; then \
 		for package in "$(DIST_DIR)"/*.deb; do \
-			test -e "$$package" || continue; lintian --fail-on error "$$package"; \
+			test -e "$$package" || continue; lintian --fail-on error "$$package" || exit 1; \
 		done; \
 	fi
 	@if command -v rpmlint >/dev/null; then \
 		for package in "$(DIST_DIR)"/*.rpm; do \
 			test -e "$$package" || continue; \
-			rpmlint --rpmlintrc rpm/t3code.rpmlintrc "$$package"; \
+			rpmlint --rpmlintrc rpm/t3code.rpmlintrc "$$package" || exit 1; \
 		done; \
 	fi
 

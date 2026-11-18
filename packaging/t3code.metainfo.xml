@@ -24,7 +24,7 @@
     <mediatype>x-scheme-handler/t3code-dev</mediatype>
   </provides>
   <releases>
-    <release version="0.1.9" date="2026-11-11"/>
+    <release version="0.1.10" date="2026-11-16"/>
   </releases>
   <content_rating type="oars-1.1"/>
 </component>
