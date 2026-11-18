@@ -161,7 +161,7 @@ jobs:
           sudo --preserve-env systemd-run --scope \
             --property=MemoryMax=10G --property=MemorySwapMax=12G \
             runuser --user "$(id -un)" --preserve-environment -- \
-            /usr/bin/time -v make packages
+            env "PATH=$PATH" /usr/bin/time -v make packages
 
       - name: Validate packages
         run: make check REQUIRE_PACKAGES=1
