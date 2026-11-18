@@ -139,7 +139,7 @@ jobs:
       # Web transforms can exhaust runner RAM and kill the Actions runner itself.
       - name: Add build swap
         run: |
-          sudo fallocate -l 16G /mnt/t3code-build.swap
+          sudo fallocate -l 32G /mnt/t3code-build.swap
           sudo chmod 600 /mnt/t3code-build.swap
           sudo mkswap /mnt/t3code-build.swap
           sudo swapon /mnt/t3code-build.swap
@@ -153,9 +153,10 @@ jobs:
           # Keep the runner and OS outside the build's memory budget. Heap
           # limits alone do not cover native bundler allocations or child jobs.
           sudo --preserve-env systemd-run --scope \
-            --property=MemoryMax=10G --property=MemorySwapMax=12G \
+            --property=MemoryMax=10G --property=MemorySwapMax=28G \
             runuser --user "$(id -un)" --preserve-environment -- \
-            env "PATH=$PATH" /usr/bin/time -v make packages
+            env "PATH=$PATH" "MALLOC_ARENA_MAX=$MALLOC_ARENA_MAX" \
+              /usr/bin/time -v make packages
 
       - name: Validate packages
         run: make check REQUIRE_PACKAGES=1
