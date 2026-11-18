@@ -1,0 +1,25 @@
+From: Primoz Ajdisek <bigpod@bigpod.si>
+Subject: [PATCH] build: skip pathological ChatView React Compiler transform
+
+The native React Compiler transform of ChatView.tsx consumes tens of GiB
+and can starve hosted runners. Keep the compiler enabled for other modules;
+Vite still handles ordinary JSX transformation for the excluded component.
+
+--- a/apps/web/vite.config.ts
++++ b/apps/web/vite.config.ts
+@@ -331,7 +331,14 @@
+             ],
+           }),
+       tanstackRouter({ autoCodeSplitting: true }),
+-      react({ compiler: true }),
++      react({
++        compiler: true,
++        exclude: [
++          /\/node_modules\//,
++          // Avoid excessive native compiler memory use in this component.
++          /\/src\/components\/ChatView\.tsx$/,
++        ],
++      }),
+       tailwindPlugins(bundledDev),
+       warmBundledDevPlugin(),
+       bundledDev ? bundledDevStableNamesPlugin() : undefined,
