@@ -1,0 +1,18 @@
+From: Primoz Ajdisek <bigpod@bigpod.si>
+Subject: [PATCH] build: disable memory-intensive React Compiler optimization
+
+The native React Compiler transform of the web UI consumes tens of GiB
+and can starve hosted runners. Build the packaged UI with ordinary JSX
+transformation; React Compiler is an optional memoization optimization.
+
+--- a/apps/web/vite.config.ts
++++ b/apps/web/vite.config.ts
+@@ -331,7 +331,7 @@
+             ],
+           }),
+       tanstackRouter({ autoCodeSplitting: true }),
+-      react({ compiler: true }),
++      react({ compiler: false }),
+       tailwindPlugins(bundledDev),
+       warmBundledDevPlugin(),
+       bundledDev ? bundledDevStableNamesPlugin() : undefined,
