@@ -86,6 +86,8 @@ jobs:
       # Bound both JavaScript and native transform memory on 16 GiB runners.
       NODE_OPTIONS: --max-old-space-size=4096
       RAYON_NUM_THREADS: "1"
+      ROLLDOWN_WORKER_THREADS: "1"
+      TOKIO_WORKER_THREADS: "1"
       MALLOC_ARENA_MAX: "2"
       T3CODE_WEB_SOURCEMAP: "false"
       PNPM_VERSION: ${{ needs.resolve.outputs.pnpm_version }}
@@ -139,7 +141,7 @@ jobs:
       # Web transforms can exhaust runner RAM and kill the Actions runner itself.
       - name: Add build swap
         run: |
-          sudo fallocate -l 16G /mnt/t3code-build.swap
+          sudo fallocate -l 32G /mnt/t3code-build.swap
           sudo chmod 600 /mnt/t3code-build.swap
           sudo mkswap /mnt/t3code-build.swap
           sudo swapon /mnt/t3code-build.swap
@@ -153,10 +155,15 @@ jobs:
           # Keep the runner and OS outside the build's memory budget. Heap
           # limits alone do not cover native bundler allocations or child jobs.
           sudo --preserve-env systemd-run --scope \
-            --property=MemoryMax=10G --property=MemorySwapMax=12G \
+            --property=MemoryMax=12G --property=MemorySwapMax=28G \
             runuser --user "$(id -un)" --preserve-environment -- \
             env "PATH=$PATH" "MALLOC_ARENA_MAX=$MALLOC_ARENA_MAX" \
-              /usr/bin/time -v make packages
+              /usr/bin/time -v make packages || {
+                build_status=$?
+                sudo journalctl --kernel --no-pager -n 60
+                sudo journalctl --unit=systemd-oomd --no-pager -n 30
+                exit "$build_status"
+              }
 
       - name: Validate packages
         run: make check REQUIRE_PACKAGES=1
